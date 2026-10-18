@@ -224,6 +224,8 @@
   .from-numbers { display: inline-block; margin-left: 6px; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 1px 6px; border-radius: 999px; background: #D7EADF; color: #1E5A38; vertical-align: 1px; }
   dialog label { display: block; margin-top: 10px; }
   dialog select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); font: inherit; margin: 10px 0; background: var(--card); color: var(--ink); }
+  .sample-banner { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin: -8px 0 20px; padding: 12px 16px; border-radius: 14px; background: #F7E6C4; color: #6B4508; border: 1px solid #E9C98A; }
+  .sample-banner[hidden] { display: none; }
   .mode-switch { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: #E6EBE5; }
   .mode-switch button { border: 0; background: transparent; color: var(--muted); padding: 7px 16px; border-radius: 999px; font-weight: 700; font-size: 14px; }
   .mode-switch button[aria-checked="true"] { background: var(--ink); color: var(--paper); }
@@ -314,6 +316,10 @@
       <button role="radio" data-kind="business" aria-checked="false">🏪 Small business</button>
     </div>
     <h1 class="page-title">Snap a bill. See your waste. Fix it.</h1>
+    <div class="sample-banner" id="sampleBanner" hidden>
+      <span>👀 <b>You’re looking at sample data.</b> Your own scans, pantry and chat are saved and untouched.</span>
+      <button class="btn btn-primary" id="exitSamples" style="padding:8px 14px">Back to my data</button>
+    </div>
 
     <div class="grid g-2">
       <div class="card">
@@ -826,11 +832,53 @@ function updatePantryDays() {
 /* ---------------- Saved state (survives a page refresh) ---------------- */
 let lastScan = null;
 
+// Sample mode: sample bills fill the dashboard without touching the person's own data.
+// Their real data waits here and comes back on "Back to my data", a real scan, or a reload.
+let sampleMode = false;
+let realData = null;
+const emptyHousehold = () => ({ energy: null, water: null, gas: null, food: null, fixes: [], pantry: [], recipe: "" });
+
+function enterSampleMode() {
+  if (sampleMode) return;
+  realData = structuredClone({ household, lastScan, doneFixes });
+  sampleMode = true;
+  Object.assign(household, emptyHousehold());
+  lastScan = null;
+  doneFixes = {};
+  chatHistory.length = 0; // earlier answers were about the real data
+  renderSampleBanner();
+}
+
+function exitSampleMode({ quiet = false } = {}) {
+  if (!sampleMode) return;
+  Object.assign(household, realData.household);
+  lastScan = realData.lastScan;
+  doneFixes = realData.doneFixes;
+  sampleMode = false;
+  realData = null;
+  chatHistory.length = 0;
+  rescore();
+  updatePantryDays();
+  if (lastScan) showScanResult(lastScan.scan, lastScan.source);
+  else $("#scanResult").classList.remove("show");
+  $("#status").replaceChildren();
+  renderHousehold();
+  syncMyBlock();
+  renderSampleBanner();
+  if (!quiet) toast("Back to your own data");
+}
+
+function renderSampleBanner() {
+  $("#sampleBanner").hidden = !sampleMode;
+}
+
 // Browser storage holds ~5 MB; if it fills up, drop the oldest thumbnails and retry.
+// In sample mode, the person's real data is what gets saved, never the samples.
 function saveState() {
+  const mine = sampleMode ? realData : { household, lastScan, doneFixes };
   const write = () => {
     try {
-      localStorage.setItem("wattson_state", JSON.stringify({ household, lastScan, shiftedKwh, scanHistory, profile, shareCity, doneFixes, routine, routineSaved }));
+      localStorage.setItem("wattson_state", JSON.stringify({ household: mine.household, lastScan: mine.lastScan, doneFixes: mine.doneFixes, shiftedKwh, scanHistory, profile, shareCity, routine, routineSaved }));
       return true;
     } catch {
       return false;
@@ -866,7 +914,10 @@ function restoreState() {
 
 function startOver() {
   if (!confirm("Clear all scans, including your history, and start over?")) return;
-  Object.assign(household, { energy: null, water: null, gas: null, food: null, fixes: [], pantry: [], recipe: "" });
+  sampleMode = false;
+  realData = null;
+  renderSampleBanner();
+  Object.assign(household, emptyHousehold());
   lastScan = null;
   shiftedKwh = 0;
   scanHistory = [];
@@ -1016,6 +1067,7 @@ const sampleScan = (name) => cleanScan(structuredClone(SAMPLES[name]));
 
 $$("[data-sample]").forEach((b) => b.addEventListener("click", () => {
   const scan = sampleScan(b.dataset.sample);
+  enterSampleMode();
   setStatus("loading", "Reading sample…");
   setTimeout(() => {
     setStatus("ok", "✓ Sample scanned");
@@ -1342,6 +1394,7 @@ async function handleFile(file) {
     toast("Still reading your last photo…");
     return;
   }
+  exitSampleMode({ quiet: true }); // a real photo always goes into the person's own data
   if (!file.type.startsWith("image/")) {
     setStatus("error", "Use a photo or screenshot of the bill (JPG or PNG).");
     return;
@@ -2189,6 +2242,9 @@ function appState() {
       })()),
     },
     sharing_with_city_map: shareCity ? `on: block signals ${mySpots.map((s) => s.signal).join("; ") || "none yet"}` : "off",
+    data_source: sampleMode
+      ? "SAMPLE DATA: these numbers are Wattson's built-in sample bills, not the person's own. Say so when you use them."
+      : "the person's own scans",
   };
 }
 
@@ -2244,6 +2300,7 @@ $("#chatClose").addEventListener("click", () => { $("#chat").hidden = true; $("#
 $("#chatForm").addEventListener("submit", (e) => { e.preventDefault(); const q = $("#chatInput").value; $("#chatInput").value = ""; askWattson(q); });
 
 $("#resetBtn").addEventListener("click", startOver);
+$("#exitSamples").addEventListener("click", () => exitSampleMode());
 restoreState();
 renderProfile();
 renderRoutine();
