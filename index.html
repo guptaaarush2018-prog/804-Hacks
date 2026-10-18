@@ -186,6 +186,10 @@
   .city { display: grid; grid-template-columns: 1fr 360px; gap: 20px; }
   #map { height: 620px; border-radius: var(--radius); border: 1px solid var(--line); }
   #map .leaflet-tile-pane { filter: saturate(.3) brightness(1.03); }
+  .edit-form { margin-top: 12px; padding: 14px; border-radius: 12px; background: #F1F4EF; }
+  .edit-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .edit-grid input { width: 100%; margin-top: 4px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); font: inherit; background: var(--card); color: var(--ink); }
+  @media (max-width: 900px) { .edit-grid { grid-template-columns: 1fr; } }
   .share-card { padding: 18px; }
   .switch-row { display: flex; gap: 12px; align-items: flex-start; cursor: pointer; }
   .switch-row input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--ink); flex: none; }
@@ -312,6 +316,19 @@
           <div class="muted small" id="scanMeta"></div>
           <div class="kv" id="scanKv"></div>
           <p style="margin:12px 0 0" id="scanSummary"></p>
+          <button class="btn btn-ghost" id="editScan" style="margin-top:10px;padding:6px 12px;font-size:13px" hidden>✎ Fix a number</button>
+          <div class="edit-form" id="editForm" hidden>
+            <p class="small muted" style="margin:0 0 8px">AI can misread a blurry photo. Correct anything that doesn’t match the bill:</p>
+            <div class="edit-grid">
+              <label class="small">This bill (<span id="editUnit"></span>)<input id="editUsage" type="number" min="0" step="any"></label>
+              <label class="small">Last bill<input id="editPrev" type="number" min="0" step="any"></label>
+              <label class="small">Amount due ($)<input id="editCost" type="number" min="0" step="0.01"></label>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:10px">
+              <button class="btn btn-primary" id="editSave" style="padding:8px 14px">Save</button>
+              <button class="btn btn-ghost" id="editCancel" style="padding:8px 14px">Cancel</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -698,9 +715,11 @@ function applyScan(scan) {
     household.food = { score: foodScore(household.pantry) };
     household.recipe = scan.recipe_idea || "";
   }
-  // Replace earlier fixes for the same resource so rescans don't pile up.
-  const resources = new Set((scan.fixes || []).map((f) => f.resource));
-  household.fixes = household.fixes.filter((f) => !resources.has(f.resource)).concat(scan.fixes || []);
+  // A new bill of the same kind replaces that kind's fixes, even if it brings none.
+  const doc = scan.document_type;
+  household.fixes = household.fixes
+    .filter((f) => (f.doc ? f.doc !== doc : f.resource !== RESOURCE_FOR[doc]))
+    .concat((scan.fixes || []).map((f) => ({ ...f, doc })));
   renderHousehold();
   saveState();
   syncMyBlock(); // keep the city map's "your block" signals in step with new scans
@@ -829,6 +848,8 @@ function showScanResult(scan, source) {
   $("#scanKv").replaceChildren(...kv.map(([k, v]) => el("div", {}, el("b", {}, v), el("span", {}, k))));
   $("#scanSummary").textContent = scan.summary || "";
   $("#scanResult").classList.add("show");
+  $("#editScan").hidden = !["electric_bill", "water_bill", "gas_bill"].includes(scan.document_type);
+  $("#editForm").hidden = true;
 }
 
 /* ---------------- Sample data (for offline / no-key demos) ---------------- */
@@ -1080,7 +1101,7 @@ function billSummary(scan) {
   }
   if (scan.previous_usage_amount > 0) {
     const change = Math.round((scan.usage_amount / scan.previous_usage_amount - 1) * 100);
-    text += ` Usage is ${change >= 0 ? "up" : "down"} ${Math.abs(change)}% from the last bill.`;
+    text += change === 0 ? " Usage is about the same as the last bill." : ` Usage is ${change > 0 ? "up" : "down"} ${Math.abs(change)}% from the last bill.`;
   }
   return text;
 }
@@ -1151,7 +1172,8 @@ function ruleFixes(scan) {
 function cleanScan(scan) {
   if (/^(unknown|n\/?a|none|not (shown|listed))$/i.test((scan.provider || "").trim())) scan.provider = "";
   const resource = RESOURCE_FOR[scan.document_type];
-  scan.fixes = (scan.fixes || []).map((f) => ({
+  // Number-based fixes are rebuilt below, so drop any from an earlier pass (e.g. after an edit).
+  scan.fixes = (scan.fixes || []).filter((f) => !f.from_numbers).map((f) => ({
     ...f,
     resource: resource || f.resource,
     detail: (f.detail || "").replace(/\s+\d+\s*$/, ""), // stray trailing numbers from the model
@@ -1252,6 +1274,35 @@ function updateScanUI({ step, text }) {
     chip.className = i < order.indexOf(step) ? "done" : i === order.indexOf(step) ? "now" : "";
   }
 }
+
+/* Correcting a misread number */
+$("#editScan").addEventListener("click", () => {
+  const scan = lastScan.scan;
+  $("#editUnit").textContent = scan.usage_unit || "usage";
+  $("#editUsage").value = scan.usage_amount;
+  $("#editPrev").value = scan.previous_usage_amount || "";
+  $("#editCost").value = scan.total_cost_usd;
+  $("#editForm").hidden = false;
+  $("#editScan").hidden = true;
+});
+$("#editCancel").addEventListener("click", () => { $("#editForm").hidden = true; $("#editScan").hidden = false; });
+$("#editSave").addEventListener("click", () => {
+  const scan = lastScan.scan;
+  const before = { period: scan.billing_period, cost: scan.total_cost_usd };
+  scan.usage_amount = Math.max(0, Number($("#editUsage").value) || 0);
+  scan.previous_usage_amount = Math.max(0, Number($("#editPrev").value) || 0);
+  scan.total_cost_usd = Math.max(0, Number($("#editCost").value) || 0);
+  cleanScan(scan); // rebuilds the summary and number-based fixes
+  showScanResult(scan, lastScan.source);
+  applyScan(scan);
+  // Real scans also live in History; replace that entry, keeping its thumbnail.
+  if (lastScan.source !== "sample data") {
+    const old = scanHistory.find((h) => h.scan.document_type === scan.document_type && h.scan.billing_period === before.period && h.scan.total_cost_usd === before.cost);
+    scanHistory = scanHistory.filter((h) => h !== old);
+    addToHistory(scan, old?.source || "scan", old?.thumb || null);
+  }
+  toast("✓ Numbers updated");
+});
 
 $("#pickFile").addEventListener("click", () => $("#fileInput").click());
 $("#fileInput").addEventListener("change", (e) => { handleFile(e.target.files[0]); e.target.value = ""; });
