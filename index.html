@@ -156,6 +156,24 @@
   .appliance { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-radius: 12px; border: 2px solid transparent; background: #F1F4EF; cursor: pointer; text-align: left; width: 100%; color: inherit; }
   .appliance.active { border-color: var(--ink); background: #E6EEE8; }
   .chart { width: 100%; height: 260px; }
+
+  /* History */
+  .hist-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .hist-head .layers { margin: 0; }
+  #histChart { width: 100%; height: auto; display: block; }
+  .hist-stats { display: flex; gap: 32px; flex-wrap: wrap; margin-top: 12px; }
+  .hist-stats b { display: block; font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 26px; }
+  .hist-stats span { font-size: 13px; color: var(--muted); }
+  details.hist-item { margin-top: 0; border-radius: 12px; background: #F1F4EF; }
+  .hist-item summary { display: flex; align-items: center; gap: 14px; padding: 10px 14px; list-style: none; font-weight: 400; }
+  .hist-item summary::-webkit-details-marker { display: none; }
+  .hist-thumb { width: 48px; height: 48px; flex: none; border-radius: 8px; object-fit: cover; background: var(--card); display: grid; place-items: center; font-size: 22px; }
+  .hist-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .hist-num { display: flex; flex-direction: column; text-align: right; }
+  .hist-body { padding: 0 14px 14px 76px; font-size: 14px; }
+  .hist-body p { margin: 0 0 8px; }
+  .hist-body ul { margin: 0 0 10px; padding-left: 18px; color: var(--muted); }
+  @media (max-width: 900px) { .hist-body { padding-left: 14px; } }
   .callout { font-family: 'Space Grotesk'; font-size: 28px; line-height: 1.2; }
   .callout em { font-style: normal; color: var(--amber); }
   .stat-row { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 18px; }
@@ -234,6 +252,7 @@
   <div class="logo"><span class="logo-mark">⚡</span>Wattson</div>
   <nav id="tabs">
     <button data-view="home" class="active">My Home</button>
+    <button data-view="history">History</button>
     <button data-view="grid">Grid Sync</button>
     <button data-view="city">Wattson City</button>
     <button data-view="impact">Impact</button>
@@ -321,6 +340,28 @@
         <div class="list" id="pantry"><div class="empty">Scan a grocery receipt to track what spoils first.</div></div>
         <div id="recipe"></div>
       </div>
+    </div>
+  </section>
+
+  <!-- HISTORY -->
+  <section class="view" id="view-history">
+    <div class="eyebrow">History</div>
+    <h1 class="page-title">See how your home is changing.</h1>
+    <div class="card">
+      <div class="hist-head">
+        <h3 style="margin:0">Monthly usage</h3>
+        <div class="layers" id="histSeries"></div>
+      </div>
+      <svg id="histChart" viewBox="0 0 720 260" role="img" aria-label="Monthly usage over time"></svg>
+      <div class="hist-stats" id="histStats"></div>
+      <div class="empty" id="histEmpty">Scan a few bills to see your trend here, or load the demo history below.</div>
+    </div>
+    <div class="card" style="margin-top:20px">
+      <div class="hist-head">
+        <h3 style="margin:0">Past scans</h3>
+        <button class="btn btn-ghost" id="demoHistory" style="padding:6px 12px;font-size:13px">Load demo history</button>
+      </div>
+      <div class="list" id="histList"></div>
     </div>
   </section>
 
@@ -503,6 +544,7 @@ function showView(name) {
   $$("#tabs button").forEach((b) => b.classList.toggle("active", b.dataset.view === name));
   $$(".view").forEach((v) => v.classList.toggle("active", v.id === "view-" + name));
   if (name === "city") enterCity();
+  if (name === "history") renderHistory();
   if (name === "impact") renderImpact();
 }
 $$("#tabs button").forEach((b) => b.addEventListener("click", () => showView(b.dataset.view)));
@@ -543,7 +585,8 @@ $("#closeSettings").addEventListener("click", () => $("#settings").close());
 const TYPICAL = { kWh: 860, gal: 9000, therms: 45 };
 const household = { energy: null, water: null, gas: null, food: null, fixes: [], pantry: [], recipe: "" };
 
-function toMonthly(amount, days) { return days > 0 ? (amount * 30) / days : amount; }
+// A normal 28–31 day bill already is a month; only rescale unusual billing periods.
+function toMonthly(amount, days) { return days > 0 && (days < 28 || days > 31) ? (amount * 30) / days : amount; }
 
 // Normalizes a bill's usage to { value, unit } in kWh, gallons or therms.
 function normalizeUsage(scan) {
@@ -610,8 +653,17 @@ function updatePantryDays() {
 /* ---------------- Saved state (survives a page refresh) ---------------- */
 let lastScan = null;
 
+// Browser storage holds ~5 MB; if it fills up, drop the oldest thumbnails and retry.
 function saveState() {
-  store.set("wattson_state", JSON.stringify({ household, lastScan, shiftedKwh }));
+  const write = () => {
+    try {
+      localStorage.setItem("wattson_state", JSON.stringify({ household, lastScan, shiftedKwh, scanHistory }));
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  for (let i = scanHistory.length - 1; !write() && i >= 0; i--) scanHistory[i].thumb = null;
 }
 
 function restoreState() {
@@ -623,23 +675,27 @@ function restoreState() {
     if (household.food) household.food.score = foodScore(household.pantry);
     if (saved.lastScan) showScanResult(saved.lastScan.scan, saved.lastScan.source);
     shiftedKwh = saved.shiftedKwh || 0;
+    scanHistory = saved.scanHistory || [];
     $("#vppKwh").textContent = fmt(shiftedKwh, 1) + " kWh";
     renderHousehold();
+    renderHistory();
   } catch (err) {
     console.warn("Couldn't restore saved data", err);
   }
 }
 
 function startOver() {
-  if (!confirm("Clear all scans and start over?")) return;
+  if (!confirm("Clear all scans, including your history, and start over?")) return;
   Object.assign(household, { energy: null, water: null, gas: null, food: null, fixes: [], pantry: [], recipe: "" });
   lastScan = null;
   shiftedKwh = 0;
+  scanHistory = [];
   store.del("wattson_state");
   $("#vppKwh").textContent = "0 kWh";
   $("#scanResult").classList.remove("show");
   $("#status").replaceChildren();
   renderHousehold();
+  renderHistory();
   toast("Cleared. Scan a bill to start.");
 }
 
@@ -757,6 +813,7 @@ $$("[data-sample]").forEach((b) => b.addEventListener("click", () => {
     setStatus("ok", "✓ Sample scanned");
     showScanResult(scan, "sample data");
     applyScan(scan);
+    addToHistory(scan, "sample");
   }, 700);
 }));
 
@@ -826,25 +883,20 @@ Read the attached utility bill or grocery receipt and fill in every field:
 - recipe_idea: for a receipt, one short meal idea that uses the items that spoil first. Otherwise an empty string.
 - summary: one plain sentence a household would understand, comparing usage with a typical U.S. home (about 860 kWh, 9,000 gallons or 45 therms a month) or naming what to use first.`;
 
-// Downscales phone photos so the model reads them faster; returns base64 JPEG.
-async function imageToBase64(file) {
+// Shrinks a photo to fit maxSide pixels; returns a JPEG data URL.
+async function downscale(file, maxSide, quality) {
   const img = await createImageBitmap(file);
-  const scale = Math.min(1, 1280 / Math.max(img.width, img.height));
+  const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(img.width * scale);
   canvas.height = Math.round(img.height * scale);
   canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
-  const blob = await new Promise((r) => canvas.toBlob(r, "image/jpeg", 0.88));
-  return blobToBase64(blob);
+  return canvas.toDataURL("image/jpeg", quality);
 }
 
-function blobToBase64(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result).split(",")[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
+// Smaller photos make the model read faster; returns base64 without the data URL prefix.
+async function imageToBase64(file) {
+  return (await downscale(file, 1280, 0.88)).split(",")[1];
 }
 
 // Ollama streams one JSON object per line; calls onChunk for each.
@@ -998,6 +1050,7 @@ async function handleFile(file) {
   }
   const done = startScanUI(file);
   try {
+    const thumb = await downscale(file, 240, 0.6).catch(() => null);
     const scan = cleanScan(await scanBill(file, updateScanUI));
     done();
     if (scan.document_type === "other") {
@@ -1007,6 +1060,7 @@ async function handleFile(file) {
     setStatus("ok", "✓ Scanned on this laptop");
     showScanResult(scan, "read on this laptop");
     applyScan(scan);
+    addToHistory(scan, "scan", thumb);
     // Draw the eye to what changed.
     for (const card of [$("#scanResult"), $("#ringArc").closest(".card")]) {
       card.classList.remove("flash");
@@ -1257,6 +1311,164 @@ function renderImpact() {
 }
 $("#pct").addEventListener("input", renderImpact);
 
+/* ---------------- History ---------------- */
+let scanHistory = []; // newest bill first
+const HISTORY_MAX = 40;
+const DOC_INFO = {
+  electric_bill: { label: "Electric bill", icon: "⚡" },
+  water_bill: { label: "Water bill", icon: "💧" },
+  gas_bill: { label: "Gas bill", icon: "🔥" },
+  grocery_receipt: { label: "Grocery receipt", icon: "🛒" },
+};
+const SERIES = { kWh: { name: "Electricity", unit: "kWh" }, gal: { name: "Water", unit: "gallons" }, therms: { name: "Gas", unit: "therms" } };
+let histSeries = null;
+
+// Dates the entry by the end of its billing period, so the chart follows bill months, not scan days.
+function periodEnd(scan, fallback) {
+  const text = scan.billing_period || "";
+  const dates = text.match(/\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}|[A-Z][a-z]{2,8}\.? \d{1,2}(?:, \d{4})?/g) || [];
+  const year = text.match(/\b(20\d{2})\b/)?.[1];
+  let last = dates.pop();
+  if (last && !/\d{4}|[\/.-]\d{2}$/.test(last) && year) last += ", " + year;
+  const time = last ? Date.parse(last) : NaN;
+  return Number.isFinite(time) && new Date(time).getFullYear() >= 2000 ? time : fallback;
+}
+
+function addToHistory(scan, source, thumb = null) {
+  if (!DOC_INFO[scan.document_type]) return;
+  const at = Date.now();
+  const entry = { id: at.toString(36) + Math.random().toString(36).slice(2, 6), at, date: periodEnd(scan, at), source, thumb, scan };
+  if (scan.document_type !== "grocery_receipt") {
+    const { value, unit } = normalizeUsage(scan);
+    entry.monthly = toMonthly(value, scan.billing_days || 30);
+    entry.unit = unit;
+  }
+  // Scanning the same bill again replaces it instead of adding a duplicate.
+  const same = (h) => h.scan.document_type === scan.document_type && h.scan.billing_period === scan.billing_period && h.scan.total_cost_usd === scan.total_cost_usd;
+  scanHistory = [entry, ...scanHistory.filter((h) => !same(h))].sort((a, b) => b.date - a.date).slice(0, HISTORY_MAX);
+  saveState();
+  renderHistory();
+}
+
+function deleteHistory(id) {
+  scanHistory = scanHistory.filter((h) => h.id !== id);
+  saveState();
+  renderHistory();
+  toast("Removed from history");
+}
+
+const monthLabel = (t) => new Date(t).toLocaleDateString("en-US", { month: "short" });
+const compactNum = (n) => (n >= 10000 ? fmt(n / 1000, 1).replace(/\.0$/, "") + "K" : fmt(n));
+
+// One-line trend per series, precomputed so the chat model never does arithmetic.
+function historyTrends() {
+  const trends = {};
+  for (const key of Object.keys(SERIES)) {
+    const points = scanHistory.filter((h) => h.unit === key).sort((a, b) => a.date - b.date);
+    if (points.length < 2) continue;
+    const first = points[0], last = points[points.length - 1], prev = points[points.length - 2];
+    const pct = (a, b) => { const p = Math.round((b / a - 1) * 100); return `${p >= 0 ? "+" : ""}${p}%`; };
+    trends[SERIES[key].name] =
+      `${points.map((p) => `${monthLabel(p.date)} ${fmt(p.monthly)}`).join(", ")} ${SERIES[key].unit} a month. ` +
+      `Latest vs previous: ${pct(prev.monthly, last.monthly)}. Latest vs first: ${pct(first.monthly, last.monthly)}.`;
+  }
+  return trends;
+}
+
+function renderHistory() {
+  const available = Object.keys(SERIES).filter((k) => scanHistory.some((h) => h.unit === k));
+  if (!available.includes(histSeries)) histSeries = available[0] || null;
+  $("#histSeries").replaceChildren(...available.map((k) =>
+    el("button", { class: "chip" + (k === histSeries ? "" : " off"), onclick: () => { histSeries = k; renderHistory(); } }, SERIES[k].name)));
+  renderTrend();
+
+  $("#histList").replaceChildren(...(scanHistory.length ? scanHistory.map((h) => {
+    const info = DOC_INFO[h.scan.document_type];
+    const date = new Date(h.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    const key = h.unit ? `${fmt(h.scan.usage_amount)} ${h.scan.usage_unit}` : `${(h.scan.items || []).length} items`;
+    return el("details", { class: "hist-item" },
+      el("summary", {},
+        h.thumb ? el("img", { class: "hist-thumb", src: h.thumb, alt: "" }) : el("div", { class: "hist-thumb" }, info.icon),
+        el("div", { class: "hist-main" },
+          el("b", {}, info.label),
+          el("span", { class: "muted small" }, [date, h.scan.provider, h.source === "sample" ? "sample" : "scanned"].filter(Boolean).join(" · "))),
+        el("div", { class: "hist-num" }, el("b", {}, key), el("span", { class: "muted small" }, money(h.scan.total_cost_usd)))),
+      el("div", { class: "hist-body" },
+        h.scan.summary ? el("p", {}, h.scan.summary) : null,
+        (h.scan.fixes || []).length ? el("ul", {}, h.scan.fixes.map((f) => el("li", {}, `${f.title} (+${money(f.est_annual_savings_usd)}/yr)`))) : null,
+        el("button", { class: "btn btn-ghost", style: "padding:6px 12px;font-size:13px", onclick: () => deleteHistory(h.id) }, "Delete")));
+  }) : [el("div", { class: "empty" }, "No scans yet. Scan a bill on My Home, or load the demo history.")]));
+}
+
+function renderTrend() {
+  const points = scanHistory.filter((h) => h.unit === histSeries).sort((a, b) => a.date - b.date);
+  const svg = $("#histChart");
+  $("#histEmpty").hidden = points.length > 0;
+  svg.style.display = points.length ? "" : "none";
+  if (!points.length) { $("#histStats").replaceChildren(); return; }
+
+  const W = 720, H = 260, padL = 52, padR = 24, padT = 24, padB = 34;
+  const typical = TYPICAL[histSeries];
+  // Round axis steps (1, 2, 2.5 or 5 × 10ⁿ) so labels read cleanly.
+  const peak = Math.max(typical, ...points.map((p) => p.monthly)) * 1.15;
+  const raw = peak / 3, mag = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw);
+  const top = step * 3;
+  const x = (i) => (points.length === 1 ? (padL + W - padR) / 2 : padL + (i * (W - padL - padR)) / (points.length - 1));
+  const y = (v) => H - padB - (v / top) * (H - padT - padB);
+  const color = { kWh: "#E9A23B", gal: "#23668F", therms: "#B4442C" }[histSeries];
+  const parts = [];
+  for (let i = 0; i <= 3; i++) {
+    const v = step * i;
+    parts.push(`<line x1="${padL}" x2="${W - padR}" y1="${y(v)}" y2="${y(v)}" stroke="#E6E8E2"/>`);
+    parts.push(`<text x="${padL - 8}" y="${y(v) + 4}" font-size="11" text-anchor="end" fill="#4A5A55" font-family="DM Sans">${compactNum(v)}</text>`);
+  }
+  parts.push(`<line x1="${padL}" x2="${W - padR}" y1="${y(typical)}" y2="${y(typical)}" stroke="#12302A" stroke-dasharray="6 5" opacity=".55"/>`);
+  parts.push(`<text x="${padL + 6}" y="${y(typical) - 6}" font-size="11" text-anchor="start" fill="#12302A" font-family="DM Sans" font-weight="700">Typical home</text>`);
+  const line = points.map((p, i) => `${i ? "L" : "M"}${x(i)},${y(p.monthly)}`).join(" ");
+  if (points.length > 1) {
+    parts.push(`<path d="${line} L${x(points.length - 1)},${H - padB} L${x(0)},${H - padB} Z" fill="${color}" opacity=".12"/>`);
+    parts.push(`<path d="${line}" fill="none" stroke="${color}" stroke-width="3" stroke-linejoin="round"/>`);
+  }
+  points.forEach((p, i) => {
+    parts.push(`<circle cx="${x(i)}" cy="${y(p.monthly)}" r="5.5" fill="${color}" stroke="#FBFAF5" stroke-width="2"><title>${monthLabel(p.date)}: ${fmt(p.monthly)} ${SERIES[histSeries].unit}</title></circle>`);
+    parts.push(`<text x="${x(i)}" y="${y(p.monthly) - 12}" font-size="12" text-anchor="middle" fill="#12302A" font-family="DM Sans" font-weight="700">${compactNum(p.monthly)}</text>`);
+    parts.push(`<text x="${x(i)}" y="${H - 10}" font-size="12" text-anchor="middle" fill="#4A5A55" font-family="DM Sans">${monthLabel(p.date)}</text>`);
+  });
+  svg.innerHTML = parts.join("");
+
+  const last = points[points.length - 1];
+  const change = (a, b) => { const p = Math.round((b / a - 1) * 100); return `${p > 0 ? "+" : ""}${p}%`; };
+  const stats = [[`${fmt(last.monthly)} ${SERIES[histSeries].unit}`, `latest month (${monthLabel(last.date)})`]];
+  if (points.length > 1) stats.push([change(points[points.length - 2].monthly, last.monthly), "vs the month before"]);
+  stats.push([change(typical, last.monthly), "vs a typical home"]);
+  $("#histStats").replaceChildren(...stats.map(([v, label]) => el("div", {}, el("b", {}, v), el("span", {}, label))));
+}
+
+// Five months of sample bills: summer cooling raises electricity, and September's water spike is the leak.
+function loadDemoHistory() {
+  const electric = [["May 1 – May 31, 2026", 31, 820], ["Jun 1 – Jun 30, 2026", 30, 990], ["Jul 1 – Jul 31, 2026", 31, 1180], ["Aug 1 – Aug 31, 2026", 31, 1260]];
+  const water = [["Apr 15 – May 14, 2026", 30, 8], ["May 15 – Jun 14, 2026", 31, 9], ["Jun 15 – Jul 14, 2026", 30, 10], ["Jul 15 – Aug 14, 2026", 31, 9]];
+  let prev = 0;
+  for (const [billing_period, billing_days, kwh] of electric) {
+    const scan = { document_type: "electric_bill", provider: "Sample Electric Co.", billing_period, usage_amount: kwh, usage_unit: "kWh", billing_days, total_cost_usd: Math.round(kwh * 14.2) / 100, previous_usage_amount: prev, items: [], fixes: [], recipe_idea: "" };
+    scan.summary = billSummary(scan);
+    addToHistory(scan, "sample");
+    prev = kwh;
+  }
+  prev = 0;
+  for (const [billing_period, billing_days, ccf] of water) {
+    const scan = { document_type: "water_bill", provider: "Sample City Utilities", billing_period, usage_amount: ccf, usage_unit: "CCF", billing_days, total_cost_usd: Math.round(ccf * 990) / 100, previous_usage_amount: prev, items: [], fixes: [], recipe_idea: "" };
+    scan.summary = billSummary(scan);
+    addToHistory(scan, "sample");
+    prev = ccf;
+  }
+  addToHistory(SAMPLES.electric, "sample");
+  addToHistory(SAMPLES.water, "sample");
+  toast("Loaded 5 months of sample bills");
+}
+$("#demoHistory").addEventListener("click", loadDemoHistory);
+
 /* ---------------- Ask Wattson (local model) ---------------- */
 const SUGGESTIONS = ["Why is my score what it is?", "What should I fix first?", "How does Grid Sync work?", "Is my data private?"];
 const chatHistory = [];
@@ -1281,6 +1493,8 @@ function appState() {
     fixes: household.fixes.map((f) => ({ title: f.title, resource: f.resource, yearly_savings_usd: f.est_annual_savings_usd })),
     pantry: household.pantry.filter((p) => p.perishable).map((p) => `${p.name}: spoils in ${p.daysLeft} days`),
     grid_sync: { appliance: selected.name, best_start_time: hourLabel(start), shifted_today_kWh: shiftedKwh },
+    history_trends: historyTrends(),
+    past_scans: scanHistory.length,
   };
 }
 
