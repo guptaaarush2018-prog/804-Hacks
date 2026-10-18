@@ -331,6 +331,7 @@
             <div class="scan-time" id="scanTime">Wattson is reading on this laptop · 0s</div>
           </div>
         </div>
+        <p class="small" id="hostedNote" hidden style="margin:10px 0 0;padding:10px 12px;border-radius:10px;background:#F7E6C4;color:#6B4508">Wattson’s AI runs on the user’s own computer, so this online demo can’t read photos. Try the <b>sample</b> bills above, or see the README to run it with the AI.</p>
         <p class="small muted" style="margin:10px 0 0">🔒 Read by AI on this laptop. Your bills never leave your device.</p>
         <div class="status" id="status"></div>
         <div class="scan-result" id="scanResult">
@@ -659,6 +660,8 @@ function refreshEngine() {
     : "✗ Not running. Real bills can’t be scanned until it is, but the samples still work.";
   $("#ollamaStatus").style.color = ollamaReady ? "var(--green)" : "var(--red)";
   $("#setupHelp").hidden = ollamaReady;
+  // On a hosted copy (e.g. GitHub Pages) visitors won't have the local model; explain instead of erroring.
+  $("#hostedNote").hidden = ollamaReady || ["localhost", "127.0.0.1", ""].includes(location.hostname);
   $("#chatStatus").textContent = ollamaReady ? "Runs on this laptop · private" : "AI offline";
 }
 
