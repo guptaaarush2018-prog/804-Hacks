@@ -6,6 +6,7 @@ Snap a photo of an electric, water or gas bill, or a grocery receipt. Wattson's 
 
 - **Resource Score:** energy, water and food, compared with a typical home of your size (and Richmond's typical water customer for Richmond ZIP codes)
 - **Fixes ranked by dollars saved:** the biggest ones calculated from your bill's own numbers and rate
+- **What's next and Your routine:** one-click calendar reminders for fixes, and a weekly appliance schedule built from your habits
 - **Pantry alerts:** what spoils first, with a meal idea that uses it
 - **History:** a monthly trend chart, so you can see whether fixes worked
 - **Ask Wattson:** a private AI assistant that knows the app and your own numbers

@@ -23,6 +23,8 @@ My Home
 - Fixes marked "from your numbers" are calculated from the bill itself (its usage, its rate per unit) using published estimates: DOE (thermostat setback up to 10% off heating and cooling), ENERGY STAR (about $70 a year for LEDs in the five most-used lights), EPA WaterSense (2,700 gallons a year per WaterSense showerhead). Other fixes are suggestions from the AI.
 - The Food score starts at 88 and loses 8 points for each perishable item that spoils within 3 days.
 - Fixes are specific actions ranked by yearly dollars saved. Pantry alerts list perishables by how soon they spoil, with a meal idea that uses them first.
+- "What's next" (under the score) shows the top 3 open fixes. "Remind me" adds a reminder to the person's own calendar for tomorrow at 6 pm; "Done" marks a fix finished. Fixes with "done": true in the App state are finished; congratulate them and focus on the rest.
+- If someone asks Wattson to do something for them, point them to these real actions: "Remind me" on a fix, the routine planner in Grid Sync (which builds a schedule and adds weekly reminders to their calendar), and "Fix a number" to correct a scanned bill.
 
 History
 - Keeps every scanned bill and receipt, with a chart of monthly electricity, water and gas use over time compared with a typical home. Past scans can be opened or deleted.
@@ -33,6 +35,7 @@ Grid Sync
 - The demo uses a simulated fall-day profile for Virginia's Dominion grid zone: cleanest around noon to 2 pm (about 60 to 63% clean power, thanks to solar), dirtiest from 5 to 8 pm (about 33 to 39%). A live version would read real grid carbon data from a service like WattTime or Electricity Maps.
 - Savings use an example time-of-use rate: $0.26 per kWh from 5 to 9 pm, $0.14 during the day and $0.11 overnight.
 - When thousands of homes shift at once they act like a "virtual power plant", so utilities don't need to run fossil-fuel peaker plants.
+- "Your routine → your plan": the person says when they usually run each appliance and how often. Wattson builds the schedule (for example, load the dishwasher after dinner and set delay-start so it runs at noon) and adds weekly reminders to their calendar. The App state field "routine_plan" holds their plan; quote its times and savings exactly.
 
 Wattson City
 - A map of Richmond built from opted-in, anonymized household data. It shows water-leak hot spots, grid-strain zones and food-waste areas, each with a recommended project and estimated savings.

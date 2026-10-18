@@ -46,6 +46,8 @@ Two sides that feed each other:
 8. **Fixes from your numbers:** the biggest fixes are calculated from the bill itself, using its usage and its own rate. Example: a 4,488-gallon jump at this bill's rate of 1.3¢ a gallon is about $713 a year if it's a leak. These are marked "from your numbers"; AI suggestions fill the rest.
 9. **History:** every scan with a monthly trend chart, so people see whether fixes worked.
 10. **Fix a number:** if the AI misreads a blurry photo, the person corrects it, and the score, fixes and history update.
+11. **What's next:** right under the score, the top 3 open fixes with **📅 Remind me** (adds a reminder to the person's own calendar) and **✓ Done** (tracks money saved so far). Wattson acts, not just advises.
+12. **Your routine → your plan** (Grid Sync): the person says when they usually run the dishwasher, laundry and EV charging and how often. Wattson builds the schedule ("load after dinner, set delay-start to 16 hours so it runs at noon"), shows yearly savings, and adds weekly reminders to their calendar in one click.
 
 ### B. Wattson City (for utilities and planners)
 Households opt in with one switch ("Share my home's anonymous totals"). Their block's monthly totals, never bills, photos or addresses, become a live map of a city's resource use. In the app this already works for your own block: a scanned water jump creates a "possible leak" signal with a recommended project, marked "NEW · from your home". The rest of the city is simulated until more homes join.
