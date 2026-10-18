@@ -5,6 +5,7 @@
 Snap a photo of an electric, water or gas bill, or a grocery receipt. Wattson's AI reads it **on your own computer**, so your bills never leave the device. Then it shows:
 
 - **Resource Score:** energy, water and food, compared with a typical home of your size (and Richmond's typical water customer for Richmond ZIP codes)
+- **Small business mode:** reads demand charges from business electric bills, scores how evenly power is used (load factor), and prices fixes with Dominion's GS-2 demand rates
 - **Fixes ranked by dollars saved:** the biggest ones calculated from your bill's own numbers and rate
 - **What's next and Your routine:** one-click calendar reminders for fixes, and a weekly appliance schedule built from your habits
 - **Pantry alerts:** what spoils first, with a meal idea that uses it

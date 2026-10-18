@@ -78,7 +78,14 @@ Households opt in with one switch ("Share my home's anonymous totals"). Their bl
 
 **Primary market: households.** About 101,000 households in Richmond city (C3 2025) and about 132M nationwide. Lead with the people who feel it most: the ~20,000 energy-burdened Richmond households, renters, and young families.
 
-**Secondary market: utilities and cities.** Utilities (Dominion Energy, Richmond Department of Public Utilities) and city planning or sustainability offices.
+**Second market: small businesses** (restaurants first, then laundromats, shops and offices). They get the same kinds of bills as homes plus one big, fixable cost homes don't have: the **demand charge**.
+- On Dominion Energy Virginia's **GS-2** rate (businesses that peak at 30 kW or more), demand is "the highest average kW load measured in any 30-minute interval during the billing month." Base demand charges from January 2026: $4.963 distribution + $1.971 transmission + $1.803 generation per kW in June–September ($0.588 in October–May), before riders. That's $8.74/kW in summer.
+- GS-2 also charges less per kWh the more evenly power is used: generation is 3.9¢/kWh for the first 150 kWh per kW of peak, then 2.2¢, 0.9¢ and 0.2¢.
+- Demand charges can be 20–50% of a commercial bill. Restaurants use about 5–7× more energy per square foot than other commercial buildings, mostly for refrigeration (ENERGY STAR), and U.S. foodservice produced 12.5 million tons of surplus food in 2024, with about 78% of its food waste going to landfill (ReFED).
+- **In the app:** choose "Small business" in 🏠 Your home. Wattson reads peak demand and demand charges from the bill, scores electricity on **load factor** (kWh ÷ (peak kW × hours); under 40% means spiky equipment, 60%+ is steady) instead of comparing with a home, and calculates **"Stagger equipment start-ups"** from the bill's real demand charges. Example: the sample restaurant bill has a 42 kW peak, $367 of demand charges (33% of the bill), a 31% load factor, and a stagger fix worth about $661 a year.
+- **Factories come later, with partners:** the DOE's Industrial Assessment Centers already give small and medium manufacturers free on-site audits (an IAC-affiliated site reports ~$141,700 average recommended yearly savings; older DOE figures were $47,000–55,000). Wattson would refer manufacturers to them rather than compete.
+
+**Third market: utilities and cities.** Utilities (Dominion Energy, Richmond Department of Public Utilities) and city planning or sustainability offices.
 
 **Competitive landscape** (researched October 2026):
 
@@ -112,6 +119,7 @@ Households opt in with one switch ("Share my home's anonymous totals"). Their bl
 ## 6. Business model
 
 - **Households: free.** Revenue from affiliate swaps (efficient appliances, smart thermostats, solar quotes, better rate plans).
+- **Small businesses: monthly subscription.** Demand-charge and food-waste savings are worth hundreds of dollars a month to a restaurant (the sample's stagger fix alone is ~$55 a month), so a subscription pays for itself. Price to be tested in the pilot.
 - **Utilities: B2B subscription to Grid Sync.** Paid per enrolled home or per kW shifted, because shifting peak demand is cheaper than building peaker plants (DOE: about $10B a year national savings).
 - **Cities and water authorities: Wattson City dashboard license.** Fits federal infrastructure and resilience grant applications.
 
@@ -221,6 +229,11 @@ The page loads the model into memory when it opens and keeps it loaded for 30 mi
 - Kitche (receipt scanning, expiry alerts): https://springwise.com/circular-economy/app-manages-home-food-inventory-to-reduce-waste · https://www.rst.software/case-studies/kitche
 - Oracle Opower (energy engagement, ~45M households): https://www.oracle.com/news/announcement/utilities-achieve-large-scale-customer-engagement-and-results-with-oracle-2026-04-13/
 - Sense price (~$299): https://shopsavvy.com/products/sense-energy-monitor
+- Dominion Energy Virginia Schedule GS-2 (effective 1 Jan 2026): https://www.dominionenergy.com/-/media/content/rates-and-tariffs/pdfs/virginia/large-business/schedule-gs2.pdf
+- ENERGY STAR, restaurants use 5–7× the energy per square foot: https://www.energystar.gov/buildings/resources-audience/small-biz/restaurants
+- ReFED foodservice sector (2024: 12.5M tons surplus): https://refed.org/downloads/by-sector-foodservice-2025.pdf
+- Demand charges explained (20–50% of a commercial bill; secondary source): https://comparepower.com/demand-charges-explained/
+- DOE Industrial Assessment Centers: https://iac.university
 
 ### Data caveats
 - EPA leak figures come from WaterSense releases from 2012 to 2015 and are still EPA's current headline numbers.
