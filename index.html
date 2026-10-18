@@ -223,6 +223,11 @@
   .home-chip:hover { border-color: var(--ink); }
   .from-numbers { display: inline-block; margin-left: 6px; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 1px 6px; border-radius: 999px; background: #D7EADF; color: #1E5A38; vertical-align: 1px; }
   dialog label { display: block; margin-top: 10px; }
+  dialog select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); font: inherit; margin: 10px 0; background: var(--card); color: var(--ink); }
+  .kind-toggle { display: flex; gap: 8px; margin-top: 12px; }
+  .kind-toggle label { flex: 1; margin: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; font-weight: 700; cursor: pointer; }
+  .kind-toggle label:has(input:checked) { border-color: var(--ink); background: #E6EEE8; }
+  .kind-toggle input { width: auto; margin: 0 6px 0 0; accent-color: var(--ink); }
   .layers { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
   .chip { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 700; color: var(--ink); }
   .chip.off { opacity: .45; }
@@ -316,6 +321,7 @@
             <button class="btn btn-ghost" data-sample="electric">⚡ Sample electric bill</button>
             <button class="btn btn-ghost" data-sample="water">💧 Sample water bill</button>
             <button class="btn btn-ghost" data-sample="receipt">🛒 Sample grocery receipt</button>
+            <button class="btn btn-ghost" data-sample="restaurant" id="bizSample" hidden>🏪 Sample restaurant bill</button>
           </div>
         </div>
         <div class="scanning" id="scanning" hidden aria-live="polite">
@@ -371,7 +377,7 @@
             <div class="bar-row"><span>⚡ Energy</span><div class="bar"><i id="barEnergy" style="background:#E9A23B"></i></div><span id="valEnergy" class="muted">–</span></div>
             <div class="bar-row"><span>💧 Water</span><div class="bar"><i id="barWater" style="background:#23668F"></i></div><span id="valWater" class="muted">–</span></div>
             <div class="bar-row"><span>🥬 Food</span><div class="bar"><i id="barFood" style="background:#2E8B57"></i></div><span id="valFood" class="muted">–</span></div>
-            <p class="small muted" style="margin:4px 0 0">Compared with a typical home like yours. Higher is better.</p>
+            <p class="small muted" style="margin:4px 0 0" id="scoreBasis">Compared with a typical home like yours. Higher is better.</p>
             <button class="home-chip" id="homeChip">🏠 Set your home for local comparisons</button>
           </div>
         </div>
@@ -544,7 +550,20 @@
   <h2 style="font-size:24px">Your home</h2>
   <p class="muted small">Wattson compares you with homes like yours instead of a national average. This stays on this device.</p>
   <label class="small"><b>ZIP code</b><input id="homeZip" inputmode="numeric" maxlength="5" placeholder="23220" autocomplete="postal-code"></label>
-  <label class="small"><b>People living in your home</b><input id="homePeople" type="number" min="1" max="12" placeholder="3"></label>
+  <div class="kind-toggle" role="radiogroup" aria-label="Who is this for?">
+    <label><input type="radio" name="kind" value="home" checked> 🏠 Home</label>
+    <label><input type="radio" name="kind" value="business"> 🏪 Small business</label>
+  </div>
+  <label class="small" id="peopleField"><b>People living in your home</b><input id="homePeople" type="number" min="1" max="12" placeholder="3"></label>
+  <label class="small" id="bizField" hidden><b>Type of business</b>
+    <select id="bizType">
+      <option value="restaurant">Restaurant or café</option>
+      <option value="laundromat">Laundromat</option>
+      <option value="retail">Shop or grocery</option>
+      <option value="office">Office or studio</option>
+      <option value="other">Other</option>
+    </select>
+  </label>
   <p class="small muted" id="homeNote"></p>
   <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
     <button class="btn btn-ghost" id="homeCancel">Cancel</button>
@@ -671,8 +690,26 @@ $("#closeSettings").addEventListener("click", () => $("#settings").close());
 
 /* ---------------- Household state & scoring ---------------- */
 // The person's home, set in the "Your home" dialog. Stays in this browser.
-let profile = { zip: "", people: 0 };
+let profile = { zip: "", people: 0, kind: "home", bizType: "restaurant" };
+const isBusiness = () => profile.kind === "business";
+const BIZ_NAME = { restaurant: "Restaurant", laundromat: "Laundromat", retail: "Shop", office: "Office", other: "Business" };
 const AVG_PEOPLE = 2.5; // U.S. average household size (Census)
+
+// Business electric bills (they show a peak demand in kW) are scored on load factor: how evenly
+// power is used. Dominion GS-2 bills demand on the busiest 30 minutes of the month, so spiky use costs more.
+// Base GS-2 demand charges from 1 Jan 2026, before riders: distribution $4.963 + transmission $1.971
+// + generation $1.803 (June–September) or $0.588 (October–May) per kW.
+const GS2_DEMAND = { summer: 4.963 + 1.971 + 1.803, other: 4.963 + 1.971 + 0.588 };
+const isDemandBill = (scan) => scan.document_type === "electric_bill" && scan.peak_demand_kw > 0;
+const loadFactor = (scan) => scan.usage_amount / (scan.peak_demand_kw * 24 * (scan.billing_days || 30));
+const loadFactorScore = (lf) => Math.round(clamp(20 + lf * 120, 5, 100)); // 25% → 50, 40% → 68, 60% → 92
+
+function demandCost(scan) {
+  if (scan.demand_charge_usd > 0) return { usd: scan.demand_charge_usd, estimated: false };
+  const month = new Date(periodEnd(scan, Date.now())).getMonth(); // 5–8 = June–September
+  const rate = month >= 5 && month <= 8 ? GS2_DEMAND.summer : GS2_DEMAND.other;
+  return { usd: scan.peak_demand_kw * rate, estimated: true };
+}
 const peopleCount = () => profile.people || AVG_PEOPLE;
 const isRichmond = () => /^232\d\d$/.test(profile.zip);
 
@@ -693,9 +730,16 @@ const household = { energy: null, water: null, gas: null, food: null, fixes: [],
 
 // Scores depend on the typical home, so recompute them when the profile changes.
 function rescore() {
-  if (household.energy) household.energy.score = usageScore(household.energy.monthly, TYPICAL.kWh);
-  if (household.water) household.water.score = usageScore(household.water.monthly, TYPICAL.gal);
-  if (household.gas) household.gas.score = usageScore(household.gas.monthly, TYPICAL.therms);
+  if (household.energy && !household.energy.loadFactor) household.energy.score = scoreFor(household.energy, TYPICAL.kWh);
+  if (household.water) household.water.score = scoreFor(household.water, TYPICAL.gal);
+  if (household.gas) household.gas.score = scoreFor(household.gas, TYPICAL.therms);
+}
+
+// Homes compare with a typical home their size. Businesses vary too much for that, so they're
+// scored on their own trend: steady use scores 70, and each 10% jump from the last bill costs 6 points.
+function scoreFor({ monthly, prevMonthly }, typical) {
+  if (!isBusiness()) return usageScore(monthly, typical);
+  return prevMonthly ? Math.round(clamp(70 - (monthly / prevMonthly - 1) * 60, 5, 100)) : 70;
 }
 
 // A normal 28–31 day bill already is a month; only rescale unusual billing periods.
@@ -735,13 +779,16 @@ function applyScan(scan) {
   if (["electric_bill", "water_bill", "gas_bill"].includes(scan.document_type)) {
     const { value } = normalizeUsage(scan);
     const monthly = toMonthly(value, days);
-    if (scan.document_type === "electric_bill") household.energy = { monthly, score: usageScore(monthly, TYPICAL.kWh) };
-    if (scan.document_type === "water_bill") {
-      // Keep the "last bill" figure printed on the bill, so a single scan can still show a jump.
-      const prev = scan.previous_usage_amount > 0 ? toMonthly(normalizeUsage({ ...scan, usage_amount: scan.previous_usage_amount }).value, days) : null;
-      household.water = { monthly, prevMonthly: prev, score: usageScore(monthly, TYPICAL.gal) };
+    // Keep the "last bill" figure printed on the bill, so a single scan can still show a change.
+    const prevMonthly = scan.previous_usage_amount > 0 ? toMonthly(normalizeUsage({ ...scan, usage_amount: scan.previous_usage_amount }).value, days) : null;
+    const entry = { monthly, prevMonthly };
+    if (scan.document_type === "electric_bill") {
+      household.energy = isDemandBill(scan)
+        ? { ...entry, loadFactor: loadFactor(scan), peakKw: scan.peak_demand_kw, demandUsd: demandCost(scan).usd, score: loadFactorScore(loadFactor(scan)) }
+        : { ...entry, score: scoreFor(entry, TYPICAL.kWh) };
     }
-    if (scan.document_type === "gas_bill") household.gas = { monthly, score: usageScore(monthly, TYPICAL.therms) };
+    if (scan.document_type === "water_bill") household.water = { ...entry, score: scoreFor(entry, TYPICAL.gal) };
+    if (scan.document_type === "gas_bill") household.gas = { ...entry, score: scoreFor(entry, TYPICAL.therms) };
   }
   if (scan.document_type === "grocery_receipt") {
     // Store a spoil date, not a day count, so alerts keep counting down after a refresh.
@@ -889,6 +936,8 @@ function showScanResult(scan, source) {
   if (scan.document_type === "grocery_receipt") {
     const perish = (scan.items || []).filter((i) => i.perishable).length;
     kv.push(["Items", (scan.items || []).length], ["Perishable", perish], ["Total", money(scan.total_cost_usd)]);
+  } else if (isDemandBill(scan)) {
+    kv.push(["Peak demand", `${fmt(scan.peak_demand_kw, 1).replace(/\.0$/, "")} kW`], ["Demand charges", money(demandCost(scan).usd)], ["Load factor", `${Math.round(loadFactor(scan) * 100)}%`]);
   } else if (scan.document_type !== "other") {
     const change = scan.previous_usage_amount > 0 ? Math.round(((scan.usage_amount - scan.previous_usage_amount) / scan.previous_usage_amount) * 100) : null;
     kv.push(["Usage", `${fmt(scan.usage_amount)} ${scan.usage_unit}`], ["Cost", money(scan.total_cost_usd)], ["vs last bill", change == null ? "–" : (change > 0 ? "+" : "") + change + "%"]);
@@ -943,6 +992,17 @@ const SAMPLES = {
     recipe_idea: "Chicken and spinach stir-fry over jasmine rice with cilantro. Blend the strawberries and bananas with yogurt for breakfast.",
     summary: "4 items spoil within 3 days. Using them first saves about $19 this week.",
   },
+  // A small restaurant on Dominion's GS-2 rate in August. Demand charges = 42 kW × ($4.963 + $1.803 + $1.971).
+  restaurant: {
+    document_type: "electric_bill", provider: "Sample Electric Co. · Schedule GS-2", billing_period: "Aug 1 – Aug 31, 2026",
+    usage_amount: 9800, usage_unit: "kWh", billing_days: 31, total_cost_usd: 1096.4, previous_usage_amount: 9200,
+    peak_demand_kw: 42, demand_charge_usd: 366.96, items: [],
+    fixes: [
+      { title: "Clean cooler condenser coils monthly", detail: "Refrigeration is a restaurant’s biggest electric load (ENERGY STAR). Dusty coils make walk-ins and reach-ins run longer.", resource: "energy", est_annual_savings_usd: 200 },
+      { title: "Run the dishwasher and ice machine after close", detail: "Night hours don’t add to your daytime peak, and most ice machines can be set to make ice overnight.", resource: "energy", est_annual_savings_usd: 150 },
+    ],
+    recipe_idea: "", summary: "",
+  },
 };
 
 // Samples go through the same cleanup as real scans, so their fixes and summaries match.
@@ -978,6 +1038,8 @@ const SCAN_SCHEMA = {
     billing_days: { type: "number" },
     total_cost_usd: { type: "number" },
     previous_usage_amount: { type: "number" },
+    peak_demand_kw: { type: "number" },
+    demand_charge_usd: { type: "number" },
     items: {
       type: "array",
       items: {
@@ -1009,7 +1071,7 @@ const SCAN_SCHEMA = {
     recipe_idea: { type: "string", maxLength: 220 },
     summary: { type: "string", maxLength: 220 },
   },
-  required: ["document_type", "provider", "billing_period", "usage_amount", "usage_unit", "billing_days", "total_cost_usd", "previous_usage_amount", "items", "fixes", "recipe_idea", "summary"],
+  required: ["document_type", "provider", "billing_period", "usage_amount", "usage_unit", "billing_days", "total_cost_usd", "previous_usage_amount", "peak_demand_kw", "demand_charge_usd", "items", "fixes", "recipe_idea", "summary"],
   additionalProperties: false,
 };
 
@@ -1019,6 +1081,7 @@ Read the attached utility bill or grocery receipt and fill in every field:
 - document_type: what the document is. Use "other" if it is not a utility bill or grocery receipt.
 - usage_amount, usage_unit, billing_days, previous_usage_amount: from the bill as printed (use the unit printed on the bill, such as kWh, CCF, gallons or therms). For a receipt, or any value not on the document, use 0 or an empty string.
 - total_cost_usd: the amount due, or the receipt total.
+- peak_demand_kw, demand_charge_usd: business electric bills often bill "demand" in kW. Give the billed peak demand in kW and the total of all per-kW demand charges in dollars. Use 0 for both if the bill has no demand charge (most home bills).
 - items: for a grocery receipt, each food item with a readable name (expand abbreviations like "BNLS CHKN THGH" to "Boneless chicken thighs"), its price, whether it is perishable, and typical days until it spoils in a fridge (0 for shelf-stable). Skip lines that are not a food item, such as SPECIAL, discounts, loyalty, subtotals, tax and payment lines. Empty for bills.
 - fixes: exactly 3 specific, practical actions for this household, based on what the document shows, with a realistic yearly dollar saving. Keep titles under 6 words and details under 20 words.
 - recipe_idea: for a receipt, one short meal idea that uses the items that spoil first. Otherwise an empty string.
@@ -1133,9 +1196,27 @@ const RESOURCE_FOR = { electric_bill: "energy", gas_bill: "energy", water_bill: 
 const UNIT_NAME = { kWh: "kWh", gal: "gallons", therms: "therms" };
 
 // Written from the extracted numbers, because small models get percentages wrong.
+const changeLine = (scan) => {
+  if (!(scan.previous_usage_amount > 0)) return "";
+  const change = Math.round((scan.usage_amount / scan.previous_usage_amount - 1) * 100);
+  return change === 0 ? " Usage is about the same as the last bill." : ` Usage is ${change > 0 ? "up" : "down"} ${Math.abs(change)}% from the last bill.`;
+};
+
+function demandSummary(scan) {
+  const lf = loadFactor(scan);
+  const { usd, estimated } = demandCost(scan);
+  const share = scan.total_cost_usd > 0 ? ` That’s ${Math.round((usd / scan.total_cost_usd) * 100)}% of this bill.` : "";
+  return `Your peak was ${fmt(scan.peak_demand_kw, 1).replace(/\.0$/, "")} kW, set by your busiest 30 minutes of the month. ` +
+    `Load factor ${Math.round(lf * 100)}%: ${lf < 0.4 ? "your equipment spikes instead of running evenly" : lf < 0.6 ? "fairly steady, with room to smooth out" : "nice and steady"}. ` +
+    `Demand charges ${estimated ? "come to about " + money(usd) + " at Dominion’s GS-2 base rates" : "were " + money(usd)}.${share}${changeLine(scan)}`;
+}
+
 function billSummary(scan) {
+  if (isDemandBill(scan)) return demandSummary(scan);
   const { value, unit } = normalizeUsage(scan);
   const monthly = toMonthly(value, scan.billing_days || 30);
+  // Businesses vary too much for a "typical" comparison; show the bill and its trend.
+  if (isBusiness()) return `This bill: ${fmt(monthly)} ${UNIT_NAME[unit]} a month.${changeLine(scan)}`;
   const pct = Math.round((monthly / TYPICAL[unit] - 1) * 100);
   const vs = pct === 0 ? "About the same as" : `${Math.abs(pct)}% ${pct > 0 ? "more than" : "less than"}`;
   let text = `${vs} ${typicalHome(unit)}, which uses about ${fmt(TYPICAL[unit])} ${UNIT_NAME[unit]} a month.`;
@@ -1147,11 +1228,7 @@ function billSummary(scan) {
   if (Math.abs(monthly - value) / value > 0.05) {
     text = `Over ${scan.billing_days} days, that’s about ${fmt(monthly)} ${UNIT_NAME[unit]} a month: ${text.charAt(0).toLowerCase() + text.slice(1)}`;
   }
-  if (scan.previous_usage_amount > 0) {
-    const change = Math.round((scan.usage_amount / scan.previous_usage_amount - 1) * 100);
-    text += change === 0 ? " Usage is about the same as the last bill." : ` Usage is ${change > 0 ? "up" : "down"} ${Math.abs(change)}% from the last bill.`;
-  }
-  return text;
+  return text + changeLine(scan);
 }
 
 const listNames = (items) => {
@@ -1178,7 +1255,7 @@ function ruleFixes(scan) {
         resource: "water", est_annual_savings_usd: Math.round(extra * rate * 12), covers: /leak|toilet|flapper|drip/i,
       });
     }
-    if (monthly > typical * 1.1) {
+    if (!isBusiness() && monthly > typical * 1.1) {
       fixes.push({
         title: "Swap in a WaterSense showerhead",
         detail: "It uses at least 20% less water. EPA estimates replacing just one saves the average family 2,700 gallons a year.",
@@ -1187,7 +1264,14 @@ function ruleFixes(scan) {
     }
   }
 
-  if (scan.document_type === "electric_bill" && rate && monthly > typical * 1.1) {
+  if (isDemandBill(scan)) {
+    const { usd } = demandCost(scan);
+    fixes.push({
+      title: "Stagger equipment start-ups",
+      detail: `Your ${fmt(scan.peak_demand_kw)} kW peak comes from one busy 30-minute stretch. Start ovens, fryers, dishwashers and HVAC 15 minutes apart instead of all at once. Cutting the peak 15% saves about ${money(usd * 0.15)} a month.`,
+      resource: "energy", est_annual_savings_usd: Math.round(usd * 0.15 * 12), covers: /stagger|start-?ups?\b/i,
+    });
+  } else if (scan.document_type === "electric_bill" && rate && !isBusiness() && monthly > typical * 1.1) {
     const yearly = monthly * 12 * rate;
     fixes.push({
       title: "Set the thermostat back 7–10°F",
@@ -1814,16 +1898,31 @@ $("#toFixes").addEventListener("click", () => $("#fixesHead").scrollIntoView({ b
 
 /* ---------------- Your home (ZIP and household size) ---------------- */
 function renderProfile() {
-  const people = profile.people ? `${profile.people} ${profile.people === 1 ? "person" : "people"}` : "";
   const area = isRichmond() ? "Richmond area" : profile.zip ? `ZIP ${profile.zip}` : "";
-  $("#homeChip").textContent = area || people
-    ? `🏠 ${[area, people].filter(Boolean).join(" · ")} · Edit`
-    : "🏠 Set your home for local comparisons";
+  if (isBusiness()) {
+    $("#homeChip").textContent = `🏪 ${[BIZ_NAME[profile.bizType] || "Business", area].filter(Boolean).join(" · ")} · Edit`;
+  } else {
+    const people = profile.people ? `${profile.people} ${profile.people === 1 ? "person" : "people"}` : "";
+    $("#homeChip").textContent = area || people
+      ? `🏠 ${[area, people].filter(Boolean).join(" · ")} · Edit`
+      : "🏠 Set your home for local comparisons";
+  }
+  $("#bizSample").hidden = !isBusiness();
+  $("#scoreBasis").textContent = isBusiness()
+    ? "Electricity is scored on how evenly you use power; water and gas on your own trend. Higher is better."
+    : "Compared with a typical home like yours. Higher is better.";
 }
+
+const dialogKind = () => $("input[name=kind]:checked")?.value || "home";
 
 function homeNote() {
   const zip = $("#homeZip").value.trim();
-  $("#homeNote").textContent = !zip ? ""
+  const business = dialogKind() === "business";
+  $("#peopleField").hidden = business;
+  $("#bizField").hidden = !business;
+  $("#homeNote").textContent = business
+    ? "Business bills with a demand charge are scored on load factor and priced with Dominion’s GS-2 demand rates."
+    : !zip ? ""
     : !/^\d{5}$/.test(zip) ? "Enter a 5-digit ZIP code."
     : /^232\d\d$/.test(zip) ? "✓ Richmond area: water is also compared with Richmond’s typical customer (City DPU)."
     : "Local averages for this area aren’t built in yet, so Wattson uses U.S. averages sized to your household.";
@@ -1832,16 +1931,19 @@ function homeNote() {
 $("#homeChip").addEventListener("click", () => {
   $("#homeZip").value = profile.zip;
   $("#homePeople").value = profile.people || "";
+  $("#bizType").value = profile.bizType || "restaurant";
+  $$("input[name=kind]").forEach((r) => (r.checked = r.value === (profile.kind || "home")));
   homeNote();
   $("#homeDialog").showModal();
 });
 $("#homeZip").addEventListener("input", homeNote);
+$$("input[name=kind]").forEach((r) => r.addEventListener("change", homeNote));
 $("#homeCancel").addEventListener("click", () => $("#homeDialog").close());
 $("#homeSave").addEventListener("click", () => {
   const zip = $("#homeZip").value.trim();
   const people = Math.round(Number($("#homePeople").value));
   if (zip && !/^\d{5}$/.test(zip)) { homeNote(); return; }
-  profile = { zip, people: people >= 1 && people <= 12 ? people : 0 };
+  profile = { zip, people: people >= 1 && people <= 12 ? people : 0, kind: dialogKind(), bizType: $("#bizType").value };
   rescore();
   if (lastScan?.scan && RESOURCE_FOR[lastScan.scan.document_type] !== "food" && lastScan.scan.usage_amount > 0) {
     lastScan.scan.summary = billSummary(lastScan.scan);
@@ -2032,7 +2134,15 @@ function appState() {
   return {
     current_tab: $("#tabs button.active").textContent,
     resource_score: Number.isFinite(score) ? score : "not scanned yet",
-    energy: household.energy && { score: household.energy.score, monthly_kWh: Math.round(household.energy.monthly), compared_with_typical: vsTypical(household.energy.monthly, TYPICAL.kWh) },
+    energy: household.energy && (household.energy.loadFactor
+      ? {
+        score: household.energy.score, monthly_kWh: Math.round(household.energy.monthly),
+        peak_demand: `${household.energy.peakKw} kW (the busiest 30 minutes of the month sets it)`,
+        load_factor: `${Math.round(household.energy.loadFactor * 100)}% (how evenly power is used; higher is better, 60%+ is steady)`,
+        demand_charges_this_bill: money(household.energy.demandUsd),
+        how_scored: "business electricity is scored on load factor, not compared with a home",
+      }
+      : { score: household.energy.score, monthly_kWh: Math.round(household.energy.monthly), compared_with_typical: isBusiness() ? "not compared (business); scored on its own trend" : vsTypical(household.energy.monthly, TYPICAL.kWh) }),
     water: household.water && { score: household.water.score, monthly_gallons: Math.round(household.water.monthly), compared_with_typical: vsTypical(household.water.monthly, TYPICAL.gal) },
     gas: household.gas && { score: household.gas.score, monthly_therms: Math.round(household.gas.monthly), compared_with_typical: vsTypical(household.gas.monthly, TYPICAL.therms) },
     food: household.food && { score: household.food.score },
@@ -2044,6 +2154,7 @@ function appState() {
     history_trends: historyTrends(),
     past_scans: scanHistory.length,
     home: {
+      kind: isBusiness() ? `small business (${BIZ_NAME[profile.bizType] || "business"})` : "home",
       zip: profile.zip || "not set",
       area: isRichmond() ? "Richmond, Virginia" : profile.zip ? "outside Wattson's built-in local data" : "not set",
       people: profile.people || "not set (comparisons assume 2.5, the U.S. average)",
@@ -2087,7 +2198,7 @@ async function askWattson(question) {
     if (!res.ok) throw new Error(`The local model returned an error (${res.status}).`);
     await readStream(res, (chunk) => {
       answer += chunk.message?.content || "";
-      bubble.textContent = answer;
+      bubble.textContent = answer.replace(/\*\*|__/g, ""); // the bubble is plain text; drop markdown bold
       $("#chatLog").scrollTop = $("#chatLog").scrollHeight;
     });
     // History keeps the plain question; fresh app state rides on each new turn.
