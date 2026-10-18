@@ -1,0 +1,14 @@
+[
+  { "id": "electric_home", "kind": "Printed electric bill", "truth": { "document_type": "electric_bill", "usage_amount": 1308, "total_cost_usd": 187.32, "previous_usage_amount": 1071, "peak_demand_kw": 0 } },
+  { "id": "electric_home_photo", "kind": "Same bill, tilted and blurred like a phone photo", "truth": { "document_type": "electric_bill", "usage_amount": 1308, "total_cost_usd": 187.32, "previous_usage_amount": 1071, "peak_demand_kw": 0 } },
+  { "id": "water_ccf", "kind": "Water bill in CCF", "truth": { "document_type": "water_bill", "usage_amount": 14, "total_cost_usd": 126.45, "previous_usage_amount": 8, "peak_demand_kw": 0 } },
+  { "id": "water_ccf_photo", "kind": "Same water bill, tilted and blurred", "truth": { "document_type": "water_bill", "usage_amount": 14, "total_cost_usd": 126.45, "previous_usage_amount": 8, "peak_demand_kw": 0 } },
+  { "id": "gas_therms", "kind": "Gas bill in therms", "truth": { "document_type": "gas_bill", "usage_amount": 38, "total_cost_usd": 64.18, "previous_usage_amount": 52, "peak_demand_kw": 0 } },
+  { "id": "electric_business", "kind": "Business electric bill with demand charges", "truth": { "document_type": "electric_bill", "usage_amount": 12450, "total_cost_usd": 1412.66, "previous_usage_amount": 11980, "peak_demand_kw": 56, "demand_charge_usd": 489.28 } },
+  { "id": "receipt_synth", "kind": "Grocery receipt (generated)", "truth": { "document_type": "grocery_receipt", "total_cost_usd": 31.33,
+    "items": [4.99, 3.49, 7.82, 3.89, 4.25, 1.25, 1.09, 3.79] } },
+  { "id": "receipt_real_1", "kind": "Real grocery receipt photo (yours)", "truth": { "document_type": "grocery_receipt", "total_cost_usd": 24.20,
+    "items": [4.66, 1.32, 3.97, 4.84, 5.15, 7.03, 3.27, 2.99, 2.49] } },
+  { "id": "receipt_real_2", "kind": "Real grocery receipt photo, top cut off (yours)", "truth": { "document_type": "grocery_receipt", "total_cost_usd": 100.00,
+    "items": [0.67, 0.75, 4.49, 3.89, 7.59, 12.18, 2.00, 1.74, 5.99, 5.75, 0.89, 6.39, 2.84, 2.19, 1.69, 1.40] } }
+]

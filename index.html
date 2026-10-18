@@ -1137,10 +1137,10 @@ const SCAN_PROMPT = `You are Wattson, an app that helps households in Richmond, 
 
 Read the attached utility bill or grocery receipt and fill in every field:
 - document_type: what the document is. Use "other" if it is not a utility bill or grocery receipt.
-- usage_amount, usage_unit, billing_days, previous_usage_amount: from the bill as printed (use the unit printed on the bill, such as kWh, CCF, gallons or therms). For a receipt, or any value not on the document, use 0 or an empty string.
+- usage_amount, usage_unit, billing_days, previous_usage_amount: from the bill as printed (use the unit printed on the bill, such as kWh, CCF, gallons or therms). previous_usage_amount is how much was used in the last billing period (often labeled "last period" or "last month"); it is never a meter reading. For a receipt, or any value not on the document, use 0 or an empty string.
 - total_cost_usd: the amount due, or the receipt total.
-- peak_demand_kw, demand_charge_usd: business electric bills often bill "demand" in kW. Give the billed peak demand in kW and the total of all per-kW demand charges in dollars. Use 0 for both if the bill has no demand charge (most home bills).
-- items: for a grocery receipt, each food item with a readable name (expand abbreviations like "BNLS CHKN THGH" to "Boneless chicken thighs"), its price, whether it is perishable, and typical days until it spoils in a fridge (0 for shelf-stable). Skip lines that are not a food item, such as SPECIAL, discounts, loyalty, subtotals, tax and payment lines. Empty for bills.
+- peak_demand_kw, demand_charge_usd: business electric bills often bill "demand" in kW. Give the billed peak demand in kW and demand_charge_usd = the sum of only the lines priced per kW (for example "56 kW @ $4.963"), checked carefully. Use 0 for both if the bill has no demand charge (most home bills).
+- items: for a grocery receipt, each food item with a readable name (expand abbreviations like "BNLS CHKN THGH" to "Boneless chicken thighs"), its price, whether it is perishable, and typical days until it spoils in a fridge (0 for shelf-stable). Skip lines that are not a food item, such as SPECIAL, discounts, loyalty, subtotals, tax and payment lines. If a line shows a quantity like "3 @ 0.58", the price is the line total (1.74). Empty for bills.
 - fixes: exactly 3 specific, practical actions for this household, based on what the document shows, with a realistic yearly dollar saving. Keep titles under 6 words and details under 20 words.
 - recipe_idea: for a receipt, one short meal idea that uses the items that spoil first. Otherwise an empty string.
 - summary: one plain sentence a household would understand, comparing usage with a typical U.S. home (about 860 kWh, 9,000 gallons or 45 therms a month) or naming what to use first.`;
@@ -1361,6 +1361,12 @@ function ruleFixes(scan) {
 // Smaller models sometimes fill fields that don't apply or mislabel fixes; correct them.
 function cleanScan(scan) {
   if (/^(unknown|n\/?a|none|not (shown|listed))$/i.test((scan.provider || "").trim())) scan.provider = "";
+  // A "last bill" figure many times this bill's usage is almost always a meter reading, not usage.
+  if (scan.usage_amount > 0 && scan.previous_usage_amount > scan.usage_amount * 5) scan.previous_usage_amount = 0;
+  // The model sometimes mis-adds demand charges. Real ones run about $2–30 per kW; outside that,
+  // drop it so Wattson estimates from Dominion's GS-2 rates instead (see demandCost).
+  const perKw = scan.peak_demand_kw > 0 ? scan.demand_charge_usd / scan.peak_demand_kw : 0;
+  if (scan.peak_demand_kw > 0 && (perKw < 2 || perKw > 30)) scan.demand_charge_usd = 0;
   const resource = RESOURCE_FOR[scan.document_type];
   // Number-based fixes are rebuilt below, so drop any from an earlier pass (e.g. after an edit).
   scan.fixes = (scan.fixes || []).filter((f) => !f.from_numbers).map((f) => ({

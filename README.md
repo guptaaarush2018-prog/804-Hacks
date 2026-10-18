@@ -42,3 +42,4 @@ The header shows **AI on this laptop** when the model is ready. Without Ollama, 
 - One file, [index.html](index.html): plain HTML, CSS and JavaScript, with [Leaflet](https://leafletjs.com) and OpenStreetMap for the map. Data is saved in the browser.
 - [demo/Modelfile](demo/Modelfile): the `wattson` model, an open-source vision model (Qwen3-VL 8B) with Wattson's knowledge and rules built in. The app sends each question along with the person's current numbers, and does all arithmetic itself so the model never has to.
 - [Documentation.md](Documentation.md): problem statement, research with sources, market, marketing plan, business model, impact math and pitch plan.
+- [eval/](eval/): an accuracy test for the scanner. On 9 test documents it read 36 of 37 key fields and all 33 receipt line items correctly.

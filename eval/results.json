@@ -1,0 +1,322 @@
+{
+  "totals": {
+    "documents": 9,
+    "fields_correct": 36,
+    "fields_total": 37,
+    "items_matched": 33,
+    "items_expected": 33,
+    "items_returned": 33,
+    "avg_seconds": 34
+  },
+  "results": [
+    {
+      "id": "electric_home",
+      "kind": "Printed electric bill",
+      "seconds": 23,
+      "checks": [
+        {
+          "field": "document_type",
+          "ok": true,
+          "got": "electric_bill",
+          "want": "electric_bill"
+        },
+        {
+          "field": "total_cost_usd",
+          "ok": true,
+          "got": 187.32,
+          "want": 187.32
+        },
+        {
+          "field": "usage_amount",
+          "ok": true,
+          "got": 1308,
+          "want": 1308
+        },
+        {
+          "field": "previous_usage_amount",
+          "ok": true,
+          "got": 1071,
+          "want": 1071
+        },
+        {
+          "field": "peak_demand_kw",
+          "ok": true,
+          "got": 0,
+          "want": 0
+        }
+      ],
+      "items": null
+    },
+    {
+      "id": "electric_home_photo",
+      "kind": "Same bill, tilted and blurred like a phone photo",
+      "seconds": 23,
+      "checks": [
+        {
+          "field": "document_type",
+          "ok": true,
+          "got": "electric_bill",
+          "want": "electric_bill"
+        },
+        {
+          "field": "total_cost_usd",
+          "ok": true,
+          "got": 187.32,
+          "want": 187.32
+        },
+        {
+          "field": "usage_amount",
+          "ok": true,
+          "got": 1308,
+          "want": 1308
+        },
+        {
+          "field": "previous_usage_amount",
+          "ok": true,
+          "got": 1071,
+          "want": 1071
+        },
+        {
+          "field": "peak_demand_kw",
+          "ok": true,
+          "got": 0,
+          "want": 0
+        }
+      ],
+      "items": null
+    },
+    {
+      "id": "water_ccf",
+      "kind": "Water bill in CCF",
+      "seconds": 21,
+      "checks": [
+        {
+          "field": "document_type",
+          "ok": true,
+          "got": "water_bill",
+          "want": "water_bill"
+        },
+        {
+          "field": "total_cost_usd",
+          "ok": true,
+          "got": 126.45,
+          "want": 126.45
+        },
+        {
+          "field": "usage_amount",
+          "ok": true,
+          "got": 14,
+          "want": 14
+        },
+        {
+          "field": "previous_usage_amount",
+          "ok": true,
+          "got": 8,
+          "want": 8
+        },
+        {
+          "field": "peak_demand_kw",
+          "ok": true,
+          "got": 0,
+          "want": 0
+        }
+      ],
+      "items": null
+    },
+    {
+      "id": "water_ccf_photo",
+      "kind": "Same water bill, tilted and blurred",
+      "seconds": 22,
+      "checks": [
+        {
+          "field": "document_type",
+          "ok": true,
+          "got": "water_bill",
+          "want": "water_bill"
+        },
+        {
+          "field": "total_cost_usd",
+          "ok": true,
+          "got": 126.45,
+          "want": 126.45
+        },
+        {
+          "field": "usage_amount",
+          "ok": true,
+          "got": 14,
+          "want": 14
+        },
+        {
+          "field": "previous_usage_amount",
+          "ok": true,
+          "got": 8,
+          "want": 8
+        },
+        {
+          "field": "peak_demand_kw",
+          "ok": true,
+          "got": 0,
+          "want": 0
+        }
+      ],
+      "items": null
+    },
+    {
+      "id": "gas_therms",
+      "kind": "Gas bill in therms",
+      "seconds": 26,
+      "checks": [
+        {
+          "field": "document_type",
+          "ok": true,
+          "got": "gas_bill",
+          "want": "gas_bill"
+        },
+        {
+          "field": "total_cost_usd",
+          "ok": true,
+          "got": 64.18,
+          "want": 64.18
+        },
+        {
+          "field": "usage_amount",
+          "ok": true,
+          "got": 38,
+          "want": 38
+        },
+        {
+          "field": "previous_usage_amount",
+          "ok": true,
+          "got": 52,
+          "want": 52
+        },
+        {
+          "field": "peak_demand_kw",
+          "ok": true,
+          "got": 0,
+          "want": 0
+        }
+      ],
+      "items": null
+    },
+    {
+      "id": "electric_business",
+      "kind": "Business electric bill with demand charges",
+      "seconds": 25,
+      "checks": [
+        {
+          "field": "document_type",
+          "ok": true,
+          "got": "electric_bill",
+          "want": "electric_bill"
+        },
+        {
+          "field": "total_cost_usd",
+          "ok": true,
+          "got": 1412.66,
+          "want": 1412.66
+        },
+        {
+          "field": "usage_amount",
+          "ok": true,
+          "got": 12450,
+          "want": 12450
+        },
+        {
+          "field": "previous_usage_amount",
+          "ok": true,
+          "got": 11980,
+          "want": 11980
+        },
+        {
+          "field": "peak_demand_kw",
+          "ok": true,
+          "got": 56,
+          "want": 56
+        },
+        {
+          "field": "demand_charge_usd",
+          "ok": false,
+          "got": 31.9,
+          "want": 489.28
+        }
+      ],
+      "items": null
+    },
+    {
+      "id": "receipt_synth",
+      "kind": "Grocery receipt (generated)",
+      "seconds": 45,
+      "checks": [
+        {
+          "field": "document_type",
+          "ok": true,
+          "got": "grocery_receipt",
+          "want": "grocery_receipt"
+        },
+        {
+          "field": "total_cost_usd",
+          "ok": true,
+          "got": 31.33,
+          "want": 31.33
+        }
+      ],
+      "items": {
+        "expected": 8,
+        "returned": 8,
+        "matched": 8,
+        "missed": []
+      }
+    },
+    {
+      "id": "receipt_real_1",
+      "kind": "Real grocery receipt photo (yours)",
+      "seconds": 49,
+      "checks": [
+        {
+          "field": "document_type",
+          "ok": true,
+          "got": "grocery_receipt",
+          "want": "grocery_receipt"
+        },
+        {
+          "field": "total_cost_usd",
+          "ok": true,
+          "got": 24.2,
+          "want": 24.2
+        }
+      ],
+      "items": {
+        "expected": 9,
+        "returned": 9,
+        "matched": 9,
+        "missed": []
+      }
+    },
+    {
+      "id": "receipt_real_2",
+      "kind": "Real grocery receipt photo, top cut off (yours)",
+      "seconds": 75,
+      "checks": [
+        {
+          "field": "document_type",
+          "ok": true,
+          "got": "grocery_receipt",
+          "want": "grocery_receipt"
+        },
+        {
+          "field": "total_cost_usd",
+          "ok": true,
+          "got": 100,
+          "want": 100
+        }
+      ],
+      "items": {
+        "expected": 16,
+        "returned": 16,
+        "matched": 16,
+        "missed": []
+      }
+    }
+  ]
+}
