@@ -42,9 +42,13 @@ Two sides that feed each other:
 4. **Pantry alerts:** tracks perishables from receipts and suggests recipes before food spoils.
 5. **Grid Sync:** "Run your dishwasher at 1 pm: the grid is cleanest right now." Shifts laundry, dishwashers and EV charging to clean, low-stress hours using live grid carbon data.
 6. **Ask Wattson:** a private AI assistant, also on the device, that knows the app and the person's own scores, fixes and pantry ("What should I fix first?").
+7. **Your home:** ZIP code and household size. Water is compared per person (EPA: 82 gallons per person per day), and Richmond homes are also compared with the City's typical water customer (6 CCF, 4,488 gallons a month).
+8. **Fixes from your numbers:** the biggest fixes are calculated from the bill itself, using its usage and its own rate. Example: a 4,488-gallon jump at this bill's rate of 1.3¢ a gallon is about $713 a year if it's a leak. These are marked "from your numbers"; AI suggestions fill the rest.
+9. **History:** every scan with a monthly trend chart, so people see whether fixes worked.
+10. **Fix a number:** if the AI misreads a blurry photo, the person corrects it, and the score, fixes and history update.
 
 ### B. Wattson City (for utilities and planners)
-All that anonymized, aggregated data becomes a live map of a city's resource use:
+Households opt in with one switch ("Share my home's anonymous totals"). Their block's monthly totals, never bills, photos or addresses, become a live map of a city's resource use. In the app this already works for your own block: a scanned water jump creates a "possible leak" signal with a recommended project, marked "NEW · from your home". The rest of the city is simulated until more homes join.
 - **Water:** neighborhoods with unusual usage spikes point to leaks or failing mains.
 - **Energy:** streets where the grid is strained at peak hours, and rooftops best suited to solar and batteries.
 - **Food:** where food waste is highest, so the city knows where to put composting or food-sharing hubs.
@@ -74,14 +78,14 @@ All that anonymized, aggregated data becomes a live map of a city's resource use
 
 **Secondary market: utilities and cities.** Utilities (Dominion Energy, Richmond Department of Public Utilities) and city planning or sustainability offices.
 
-**Competitive landscape** (general market knowledge; check current pricing before the pitch):
+**Competitive landscape** (researched October 2026):
 
 | Product | What it does | Gap |
 |---|---|---|
-| Opower (Oracle) | Utility-sent energy reports | Energy only. Sold to utilities, not built for residents. |
-| Sense / Emporia | Home energy monitors | $150–$300 hardware plus electrician install. Energy only. |
+| Opower (Oracle) | Utility-sent home energy reports, neighbor comparisons; Oracle says ~45M North American households | Energy-focused (water reports come from separate vendors such as WaterSmart). Sent by utilities, not chosen by residents. Data lives in the cloud. |
+| Sense | Home energy monitor | About $299 plus electrician install (~$115 in a 2019 report). Energy only. Device analysis runs in the cloud. |
 | Flume / Phyn | Water leak sensors | Hardware. Water only. |
-| Too Good To Go / Olio | Surplus food marketplaces | Retail surplus, not your own fridge. |
+| Kitche (UK) | Free app that scans grocery receipts and sends expiry alerts; ~65,000 UK downloads | Food only, UK supermarkets, no bills, no city data. The closest competitor to our pantry feature, and proof people will scan receipts. |
 | WattTime / Electricity Maps | Grid carbon data | Data APIs, not consumer products. |
 
 **UVP:** Wattson is the **only product that covers energy, water and food in one app, with no hardware** (just a photo of your bill), and the **only one that turns household data into infrastructure planning** for cities. Competitors solve one resource for one audience. Wattson connects both sides.
@@ -98,6 +102,8 @@ All that anonymized, aggregated data becomes a live map of a city's resource use
 4. **Neighborhood leagues.** Civic associations compete on neighborhood Resource Scores. Winners get city recognition or small grants.
 5. **Retail and grocery partners.** Receipt scanning partnerships with local grocers, like Ellwood Thompson's or Kroger, for in-store QR codes and rewards.
 6. **Earned media.** The January 2025 water crisis is a ready-made story: "the app that helps Richmond see its water problems before they hit."
+
+**First step (a pilot we can measure):** 100 households enrolled through Project:HOMES caseworkers over 3 months. Success means bills about 5% lower, within the 4–12% range feedback programs achieve (ACEEE), plus at least one block-level leak or grid-strain signal shared with the City. Results from the pilot become the pitch to Richmond DPU for the bill-insert channel.
 
 ---
 
@@ -148,7 +154,8 @@ The demo is worth the most, so give it the most time. **Every team member must s
 **Demo note:** the city view can use realistic simulated data. Say so honestly if asked.
 
 ### Likely judge questions
-- **"Is the city data real?"** Simulated for the demo. In production it comes from opted-in, anonymized household data plus utility AMI (smart meter) data through partnerships.
+- **"Is the city data real?"** Your own block is real: turn on sharing and your scans create its signals live. The other neighborhoods are simulated until more homes join; in production they come from opted-in household data plus utility smart-meter data through partnerships.
+- **"Where do your averages come from?"** Electricity: EIA's 2024 U.S. average, 863 kWh a month. Water: EPA's 82 gallons per person per day, times your household size, plus Richmond DPU's typical customer (6 CCF) for Richmond ZIPs. Fix savings use DOE, ENERGY STAR and EPA estimates applied to your bill's own rate.
 - **"Privacy?" / "Where does my data go?"** Nowhere, by default. The AI reads bills and answers questions on your own device; nothing is uploaded. Sharing with the city map is opt-in, and only anonymous totals are sent, grouped by block with a minimum group size. No individual home is ever shown.
 - **"What AI do you use?"** An open-source vision model (Qwen3-VL, 8 billion parameters) running locally through Ollama, customized with Wattson's own instructions and knowledge. No cloud API, no per-scan cost, and it works offline.
 - **"Why is the scan slow?"** It runs on a laptop with no cloud. A bill takes about 25 seconds and a long receipt about a minute. On a phone or a newer laptop it would be faster, and it's a one-time scan per bill.
@@ -165,7 +172,7 @@ The demo is worth the most, so give it the most time. **Every team member must s
 
 **Real scanning:** all AI runs on the laptop through Ollama. No API key, no account, and bills are never uploaded anywhere, which is a selling point: no competitor we compared offers private, on-device scanning. The header light shows **AI on this laptop** (green) or **AI offline** (red; click it for setup steps). Scanning reads photos only, not PDFs. While it works, the status line shows live progress ("Reading a grocery receipt… found 7 items · 12s"). In testing: a printed electric bill took ~25 seconds, and two real grocery receipts (13 and 16 lines) took 64 and 83 seconds, with every price and total read correctly. Spoil dates come from a built-in shelf-life table for common foods, because the model's own guesses were unreliable. If the AI is offline, the three **Sample** buttons still work.
 
-**History tab:** every scan (and sample) is kept with its date, key numbers and a small thumbnail, newest bill first. Click one to see its summary and fixes, or delete it. A chart shows monthly electricity, water or gas use against a typical home, with "vs the month before" and "vs a typical home" stats. **Load demo history** adds five months of sample bills: electricity rises through the summer, and water spikes 67% in September, which is the leak. Ask Wattson can answer trend questions ("How has my water use changed?") from the same data.
+**History tab:** every real scan is kept (sample buttons are not) with its date, key numbers and a small thumbnail, newest bill first. Click one to see its summary and fixes, or delete it. A chart shows monthly electricity, water or gas use against a typical home, with "vs the month before" and "vs a typical home" stats. **Load demo history** adds five months of sample bills: electricity rises through the summer, and water spikes 67% in September, which is the leak. Ask Wattson can answer trend questions ("How has my water use changed?") from the same data.
 
 **Saved data:** scans are saved in the browser, so a refresh doesn't wipe the score during the pitch, and pantry alerts keep counting down day by day. **↺ Start over** (next to the score) clears everything. Click it before you present, then scan live.
 
@@ -178,12 +185,12 @@ ollama create wattson -f demo/Modelfile
 The page loads the model into memory when it opens and keeps it loaded for 30 minutes. Open the page a minute before you present so the first answer is fast.
 
 **Demo order (matches slide 6):**
-0. **Before going on:** open the page, click **↺ Start over**, check the header says **AI on this laptop**, and have a clear photo of an electric bill ready.
-1. **My Home:** scan the electric bill live (~25 s) and talk over the progress line. Then click **Sample water bill** and **Sample grocery receipt** to fill in the score, fixes and pantry alerts.
-2. **Ask Wattson:** click a suggested question such as "What should I fix first?"
-3. **Grid Sync:** pick EV charging to show its best window, then click **Schedule it**.
-4. **Wattson City:** the map zooms out from "Your home" to all of Richmond. Click a project in the list to fly to it.
-5. **Impact:** drag the slider from 10% up to 25%.
+0. **Before going on:** open the page, click **↺ Start over**, set **🏠 Your home** to a Richmond ZIP (e.g. 23220) and your household size, turn **off** sharing in Wattson City, check the header says **AI on this laptop**, and have a clear photo of an electric bill ready.
+1. **My Home:** scan the electric bill live (~25 s) and talk over the progress line. Then click **Sample water bill** (shows the leak fix "from your numbers" and the Richmond comparison) and **Sample grocery receipt** (pantry alerts).
+2. **Ask Wattson:** "How does my water use compare to others in Richmond?" or a suggested question.
+3. **Wattson City:** the map zooms out from "Your home" to Richmond. **Flip on "Share my home's anonymous totals"**: pulsing dots appear on your block, and "NEW · from your home" projects join the list. This is the moment the two halves connect.
+4. **History** (optional, if time): **Load demo history** shows September's 67% water spike.
+5. **Impact:** drag the slider from 10% up to 25%. Skip Grid Sync if time is short.
 
 **What's simulated (say so if asked):** the grid profile, the city hot spots and homes, and the time-of-use prices. Real scanning and the Impact formulas (Section 7) are not simulated.
 
@@ -203,6 +210,15 @@ The page loads the model into memory when it opens and keeps it loaded for 30 mi
 - Community Climate Collaborative, Richmond energy burden (2025): https://www.vpm.org/news/2025-09-15/community-climate-collaborative-energy-burden-study-rva-east-end-southside
 - Opower randomized evaluation (Allcott & Rogers): https://www.povertyactionlab.org/evaluation/opower-evaluating-impact-home-energy-reports-energy-conservation-united-states
 - ACEEE feedback meta-review (Ehrhardt-Martinez et al., 2010): https://aceee.org/research-report/e105
+- Richmond DPU "typical customer" (6 CCF a month): https://rva.gov/node/14191
+- EPA WaterSense, 82 gallons per person per day: https://19january2025snapshot.epa.gov/watersense/statistics-and-facts
+- EIA 2024 U.S. residential average, 863 kWh a month (Table 5A): https://www.eia.gov/electricity/sales_revenue_price/
+- DOE, thermostat setback up to 10% a year on heating and cooling: https://www.energy.gov/energysaver/programmable-thermostats
+- ENERGY STAR, about $70 a year for LEDs in the five most-used fixtures: https://www.energystar.gov/ia/partners/univ/u_lighting/Light_Bulbs_At-A-Glance.pdf
+- EPA WaterSense, one showerhead saves the average family 2,700 gallons a year: https://epa.gov/watersense/shower-better
+- Kitche (receipt scanning, expiry alerts): https://springwise.com/circular-economy/app-manages-home-food-inventory-to-reduce-waste · https://www.rst.software/case-studies/kitche
+- Oracle Opower (energy engagement, ~45M households): https://www.oracle.com/news/announcement/utilities-achieve-large-scale-customer-engagement-and-results-with-oracle-2026-04-13/
+- Sense price (~$299): https://shopsavvy.com/products/sense-energy-monitor
 
 ### Data caveats
 - EPA leak figures come from WaterSense releases from 2012 to 2015 and are still EPA's current headline numbers.
@@ -210,3 +226,5 @@ The page loads the model into memory when it opens and keeps it loaded for 30 mi
 - The commonly quoted "$1,500 per household per year" food-waste figure couldn't be traced to a primary source, so this document uses ReFED's **$800 per person** instead.
 - ASCE's "a water main break every 2 minutes" is a **2021** figure. Use the 2025 number (33.3T gallons a year) instead.
 - Impact numbers in Section 7 are estimates built on the stated assumptions.
+- "Fixes from your numbers" assumptions: a bill's rate is its total ÷ usage, so it includes fixed charges. Thermostat savings assume heating and cooling are ~40% of an electric bill. Food savings assume about a quarter of at-risk food would otherwise be thrown out, every week. The leak estimate assumes the whole jump from last bill is the leak.
+- No verified Virginia-specific electricity average was found (a secondary site lists 904 kWh), so the app uses EIA's U.S. figure.

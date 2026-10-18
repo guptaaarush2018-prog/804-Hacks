@@ -1132,8 +1132,8 @@ function ruleFixes(scan) {
     }
     if (monthly > typical * 1.1) {
       fixes.push({
-        title: "Install WaterSense showerheads",
-        detail: "They use at least 20% less water. EPA estimates a typical family saves about 2,700 gallons a year.",
+        title: "Swap in a WaterSense showerhead",
+        detail: "It uses at least 20% less water. EPA estimates replacing just one saves the average family 2,700 gallons a year.",
         resource: "water", est_annual_savings_usd: Math.round(2700 * rate), covers: /shower|aerator|faucet/i,
       });
     }
@@ -1148,8 +1148,8 @@ function ruleFixes(scan) {
     });
     fixes.push({
       title: "Switch your 5 most-used lights to LED",
-      detail: "ENERGY STAR estimates about $75 a year for replacing the five lights you use most.",
-      resource: "energy", est_annual_savings_usd: 75, covers: /led|bulb|light/i,
+      detail: "ENERGY STAR estimates about $70 a year for replacing the five lights you use most.",
+      resource: "energy", est_annual_savings_usd: 70, covers: /led|bulb|light/i,
     });
   }
 
