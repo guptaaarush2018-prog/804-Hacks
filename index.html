@@ -224,6 +224,9 @@
   .from-numbers { display: inline-block; margin-left: 6px; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 1px 6px; border-radius: 999px; background: #D7EADF; color: #1E5A38; vertical-align: 1px; }
   dialog label { display: block; margin-top: 10px; }
   dialog select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); font: inherit; margin: 10px 0; background: var(--card); color: var(--ink); }
+  .mode-switch { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: #E6EBE5; }
+  .mode-switch button { border: 0; background: transparent; color: var(--muted); padding: 7px 16px; border-radius: 999px; font-weight: 700; font-size: 14px; }
+  .mode-switch button[aria-checked="true"] { background: var(--ink); color: var(--paper); }
   .kind-toggle { display: flex; gap: 8px; margin-top: 12px; }
   .kind-toggle label { flex: 1; margin: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; font-weight: 700; cursor: pointer; }
   .kind-toggle label:has(input:checked) { border-color: var(--ink); background: #E6EEE8; }
@@ -306,7 +309,10 @@
 <main>
   <!-- MY HOME -->
   <section class="view active" id="view-home">
-    <div class="eyebrow">Household</div>
+    <div class="mode-switch" role="radiogroup" aria-label="Who is Wattson helping?">
+      <button role="radio" data-kind="home" aria-checked="true">🏠 Home</button>
+      <button role="radio" data-kind="business" aria-checked="false">🏪 Small business</button>
+    </div>
     <h1 class="page-title">Snap a bill. See your waste. Fix it.</h1>
 
     <div class="grid g-2">
@@ -1908,6 +1914,7 @@ function renderProfile() {
       : "🏠 Set your home for local comparisons";
   }
   $("#bizSample").hidden = !isBusiness();
+  $$(".mode-switch button").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.kind === (isBusiness() ? "business" : "home"))));
   $("#scoreBasis").textContent = isBusiness()
     ? "Electricity is scored on how evenly you use power; water and gas on your own trend. Higher is better."
     : "Compared with a typical home like yours. Higher is better.";
@@ -1944,6 +1951,13 @@ $("#homeSave").addEventListener("click", () => {
   const people = Math.round(Number($("#homePeople").value));
   if (zip && !/^\d{5}$/.test(zip)) { homeNote(); return; }
   profile = { zip, people: people >= 1 && people <= 12 ? people : 0, kind: dialogKind(), bizType: $("#bizType").value };
+  applyProfile();
+  $("#homeDialog").close();
+  toast(isBusiness() ? "✓ Set up for your business" : "✓ Comparisons updated for your home");
+});
+
+// Re-scores and redraws everything that depends on the profile.
+function applyProfile() {
   rescore();
   if (lastScan?.scan && RESOURCE_FOR[lastScan.scan.document_type] !== "food" && lastScan.scan.usage_amount > 0) {
     lastScan.scan.summary = billSummary(lastScan.scan);
@@ -1954,9 +1968,15 @@ $("#homeSave").addEventListener("click", () => {
   renderProfile();
   saveState();
   if (mapReady) syncMyBlock();
-  $("#homeDialog").close();
-  toast("✓ Comparisons updated for your home");
-});
+}
+
+// The Home / Small business switch above the page title.
+$$(".mode-switch button").forEach((b) => b.addEventListener("click", () => {
+  if (profile.kind === b.dataset.kind) return;
+  profile = { ...profile, kind: b.dataset.kind, bizType: profile.bizType || "restaurant" };
+  applyProfile();
+  toast(isBusiness() ? "🏪 Small business mode: try the sample restaurant bill" : "🏠 Home mode");
+}));
 
 /* ---------------- History ---------------- */
 let scanHistory = []; // newest bill first
