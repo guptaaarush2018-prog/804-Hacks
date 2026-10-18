@@ -114,7 +114,7 @@
   @keyframes blink { 0%, 80%, 100% { opacity: .35; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-4px); } }
 
   @media (prefers-reduced-motion: reduce) {
-    .scan-line, .runner-wrap, .runner, .dots i, .flash { animation: none; }
+    .scan-line, .runner-wrap, .runner, .dots i, .flash, .pulse { animation: none; }
   }
   .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--line); border-top-color: var(--blue); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -186,6 +186,18 @@
   .city { display: grid; grid-template-columns: 1fr 360px; gap: 20px; }
   #map { height: 620px; border-radius: var(--radius); border: 1px solid var(--line); }
   #map .leaflet-tile-pane { filter: saturate(.3) brightness(1.03); }
+  .share-card { padding: 18px; }
+  .switch-row { display: flex; gap: 12px; align-items: flex-start; cursor: pointer; }
+  .switch-row input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--ink); flex: none; }
+  #shareInfo { margin-top: 12px; }
+  #shareInfo:empty { display: none; }
+  .mine-tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--amber); color: var(--ink); margin-bottom: 4px; }
+  .pulse { width: 18px; height: 18px; border-radius: 50%; background: var(--c); border: 3px solid #FBFAF5; animation: ring 1.6s ease-out infinite; }
+  @keyframes ring { 0% { box-shadow: 0 0 0 0 var(--c); } 100% { box-shadow: 0 0 0 22px transparent; } }
+  .home-chip { margin-top: 6px; justify-self: start; border: 1px dashed var(--line); background: transparent; color: var(--ink); border-radius: 999px; padding: 5px 12px; font-size: 13px; font-weight: 700; }
+  .home-chip:hover { border-color: var(--ink); }
+  .from-numbers { display: inline-block; margin-left: 6px; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 1px 6px; border-radius: 999px; background: #D7EADF; color: #1E5A38; vertical-align: 1px; }
+  dialog label { display: block; margin-top: 10px; }
   .layers { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
   .chip { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 700; color: var(--ink); }
   .chip.off { opacity: .45; }
@@ -320,7 +332,8 @@
             <div class="bar-row"><span>⚡ Energy</span><div class="bar"><i id="barEnergy" style="background:#E9A23B"></i></div><span id="valEnergy" class="muted">–</span></div>
             <div class="bar-row"><span>💧 Water</span><div class="bar"><i id="barWater" style="background:#23668F"></i></div><span id="valWater" class="muted">–</span></div>
             <div class="bar-row"><span>🥬 Food</span><div class="bar"><i id="barFood" style="background:#2E8B57"></i></div><span id="valFood" class="muted">–</span></div>
-            <p class="small muted" style="margin:4px 0 0">Compared with a typical U.S. home. Higher is better.</p>
+            <p class="small muted" style="margin:4px 0 0">Compared with a typical home like yours. Higher is better.</p>
+            <button class="home-chip" id="homeChip">🏠 Set your home for local comparisons</button>
           </div>
         </div>
         <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center">
@@ -415,11 +428,20 @@
           <button class="chip" id="replayZoom" style="margin-left:auto">↺ Replay zoom-out</button>
         </div>
         <div id="map"></div>
-        <p class="sim-note">Hot spots and homes are simulated for this demo. In production they come from opted-in, anonymized household data, grouped by block so no single home is ever shown.</p>
+        <p class="sim-note">Neighborhood hot spots and the other homes are simulated for this demo. Your own block’s signals come from your real scans when you share them. In production, every home’s data arrives the same way: opted in, anonymized, and grouped by block so no single home is ever shown.</p>
       </div>
-      <div class="card" style="padding:18px">
-        <h3>Recommended projects</h3>
-        <div class="projects" id="projects"></div>
+      <div style="display:grid;gap:20px;align-content:start">
+        <div class="card share-card">
+          <label class="switch-row">
+            <input type="checkbox" id="shareToggle">
+            <span><b>Share my home’s anonymous totals</b><br><span class="muted small">Only monthly totals for your block. Never your bills, photos or address.</span></span>
+          </label>
+          <div class="small" id="shareInfo"></div>
+        </div>
+        <div class="card" style="padding:18px">
+          <h3>Recommended projects</h3>
+          <div class="projects" id="projects"></div>
+        </div>
       </div>
     </div>
   </section>
@@ -464,6 +486,18 @@
     </details>
   </section>
 </main>
+
+<dialog id="homeDialog">
+  <h2 style="font-size:24px">Your home</h2>
+  <p class="muted small">Wattson compares you with homes like yours instead of a national average. This stays on this device.</p>
+  <label class="small"><b>ZIP code</b><input id="homeZip" inputmode="numeric" maxlength="5" placeholder="23220" autocomplete="postal-code"></label>
+  <label class="small"><b>People living in your home</b><input id="homePeople" type="number" min="1" max="12" placeholder="3"></label>
+  <p class="small muted" id="homeNote"></p>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+    <button class="btn btn-ghost" id="homeCancel">Cancel</button>
+    <button class="btn btn-primary" id="homeSave">Save</button>
+  </div>
+</dialog>
 
 <dialog id="settings">
   <h2 style="font-size:24px">Wattson’s AI</h2>
@@ -581,9 +615,33 @@ $("#recheck").addEventListener("click", async () => toast((await checkOllama()) 
 $("#closeSettings").addEventListener("click", () => $("#settings").close());
 
 /* ---------------- Household state & scoring ---------------- */
-// Typical U.S. home, per month.
-const TYPICAL = { kWh: 860, gal: 9000, therms: 45 };
+// The person's home, set in the "Your home" dialog. Stays in this browser.
+let profile = { zip: "", people: 0 };
+const AVG_PEOPLE = 2.5; // U.S. average household size (Census)
+const peopleCount = () => profile.people || AVG_PEOPLE;
+const isRichmond = () => /^232\d\d$/.test(profile.zip);
+
+// Typical home, per month. Water scales with household size; read live so a profile change applies everywhere.
+//   kWh: EIA 2024 U.S. residential average (863 kWh/month)
+//   gal: EPA WaterSense, 82 gallons per person per day at home
+//   therms: rough U.S. average for a gas-heated home
+const TYPICAL = {
+  kWh: 863,
+  get gal() { return Math.round(82 * 30 * peopleCount()); },
+  therms: 45,
+};
+// Richmond DPU's "typical customer" in its rate notices: 6 CCF (4,488 gallons) a month.
+const RICHMOND_TYPICAL_GAL = 4488;
+const typicalHome = (unit) => unit === "gal" ? `a typical ${fmt(peopleCount(), 1).replace(/\.0$/, "")}-person U.S. home` : "a typical U.S. home";
+
 const household = { energy: null, water: null, gas: null, food: null, fixes: [], pantry: [], recipe: "" };
+
+// Scores depend on the typical home, so recompute them when the profile changes.
+function rescore() {
+  if (household.energy) household.energy.score = usageScore(household.energy.monthly, TYPICAL.kWh);
+  if (household.water) household.water.score = usageScore(household.water.monthly, TYPICAL.gal);
+  if (household.gas) household.gas.score = usageScore(household.gas.monthly, TYPICAL.therms);
+}
 
 // A normal 28–31 day bill already is a month; only rescale unusual billing periods.
 function toMonthly(amount, days) { return days > 0 && (days < 28 || days > 31) ? (amount * 30) / days : amount; }
@@ -623,7 +681,11 @@ function applyScan(scan) {
     const { value } = normalizeUsage(scan);
     const monthly = toMonthly(value, days);
     if (scan.document_type === "electric_bill") household.energy = { monthly, score: usageScore(monthly, TYPICAL.kWh) };
-    if (scan.document_type === "water_bill") household.water = { monthly, score: usageScore(monthly, TYPICAL.gal) };
+    if (scan.document_type === "water_bill") {
+      // Keep the "last bill" figure printed on the bill, so a single scan can still show a jump.
+      const prev = scan.previous_usage_amount > 0 ? toMonthly(normalizeUsage({ ...scan, usage_amount: scan.previous_usage_amount }).value, days) : null;
+      household.water = { monthly, prevMonthly: prev, score: usageScore(monthly, TYPICAL.gal) };
+    }
     if (scan.document_type === "gas_bill") household.gas = { monthly, score: usageScore(monthly, TYPICAL.therms) };
   }
   if (scan.document_type === "grocery_receipt") {
@@ -641,6 +703,7 @@ function applyScan(scan) {
   household.fixes = household.fixes.filter((f) => !resources.has(f.resource)).concat(scan.fixes || []);
   renderHousehold();
   saveState();
+  syncMyBlock(); // keep the city map's "your block" signals in step with new scans
 }
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -657,7 +720,7 @@ let lastScan = null;
 function saveState() {
   const write = () => {
     try {
-      localStorage.setItem("wattson_state", JSON.stringify({ household, lastScan, shiftedKwh, scanHistory }));
+      localStorage.setItem("wattson_state", JSON.stringify({ household, lastScan, shiftedKwh, scanHistory, profile, shareCity }));
       return true;
     } catch {
       return false;
@@ -671,11 +734,15 @@ function restoreState() {
     const saved = JSON.parse(store.get("wattson_state") || "null");
     if (!saved) return;
     Object.assign(household, saved.household);
+    profile = saved.profile || profile;
+    shareCity = !!saved.shareCity;
+    rescore();
     updatePantryDays();
     if (household.food) household.food.score = foodScore(household.pantry);
     if (saved.lastScan) showScanResult(saved.lastScan.scan, saved.lastScan.source);
     shiftedKwh = saved.shiftedKwh || 0;
-    scanHistory = saved.scanHistory || [];
+    // Older versions saved sample-button clicks to History; those aren't real scans.
+    scanHistory = (saved.scanHistory || []).filter((h) => h.source !== "sample");
     $("#vppKwh").textContent = fmt(shiftedKwh, 1) + " kWh";
     renderHousehold();
     renderHistory();
@@ -690,7 +757,8 @@ function startOver() {
   lastScan = null;
   shiftedKwh = 0;
   scanHistory = [];
-  store.del("wattson_state");
+  saveState(); // keeps the home profile and sharing choice
+  if (mapReady) syncMyBlock();
   $("#vppKwh").textContent = "0 kWh";
   $("#scanResult").classList.remove("show");
   $("#status").replaceChildren();
@@ -730,7 +798,9 @@ function renderHousehold() {
   const fixList = $("#fixes");
   fixList.replaceChildren(...(fixes.length ? fixes.map((f) =>
     el("div", { class: "fix" },
-      el("div", {}, el("div", { class: "tag " + f.resource }, f.resource), el("b", {}, f.title)),
+      el("div", {},
+        el("div", { class: "tag " + f.resource }, f.resource, f.from_numbers ? el("span", { class: "from-numbers" }, "from your numbers") : null),
+        el("b", {}, f.title)),
       el("span", { class: "save" }, "+" + money(f.est_annual_savings_usd) + "/yr"),
       el("p", {}, f.detail))
   ) : [el("div", { class: "empty" }, "Scan a bill or receipt to get personalized fixes.")]));
@@ -806,14 +876,16 @@ const SAMPLES = {
   },
 };
 
+// Samples go through the same cleanup as real scans, so their fixes and summaries match.
+const sampleScan = (name) => cleanScan(structuredClone(SAMPLES[name]));
+
 $$("[data-sample]").forEach((b) => b.addEventListener("click", () => {
-  const scan = SAMPLES[b.dataset.sample];
+  const scan = sampleScan(b.dataset.sample);
   setStatus("loading", "Reading sample…");
   setTimeout(() => {
     setStatus("ok", "✓ Sample scanned");
     showScanResult(scan, "sample data");
-    applyScan(scan);
-    addToHistory(scan, "sample");
+    applyScan(scan); // samples fill the dashboard but stay out of History
   }, 700);
 }));
 
@@ -997,7 +1069,11 @@ function billSummary(scan) {
   const monthly = toMonthly(value, scan.billing_days || 30);
   const pct = Math.round((monthly / TYPICAL[unit] - 1) * 100);
   const vs = pct === 0 ? "About the same as" : `${Math.abs(pct)}% ${pct > 0 ? "more than" : "less than"}`;
-  let text = `${vs} a typical U.S. home, which uses about ${fmt(TYPICAL[unit])} ${UNIT_NAME[unit]} a month.`;
+  let text = `${vs} ${typicalHome(unit)}, which uses about ${fmt(TYPICAL[unit])} ${UNIT_NAME[unit]} a month.`;
+  if (unit === "gal" && isRichmond()) {
+    const local = Math.round((monthly / RICHMOND_TYPICAL_GAL - 1) * 100);
+    text += ` That’s ${Math.abs(local)}% ${local >= 0 ? "more" : "less"} than Richmond’s typical water customer (${fmt(RICHMOND_TYPICAL_GAL)} gallons a month).`;
+  }
   // Only mention the monthly conversion when the billing period makes it differ from the bill.
   if (Math.abs(monthly - value) / value > 0.05) {
     text = `Over ${scan.billing_days} days, that’s about ${fmt(monthly)} ${UNIT_NAME[unit]} a month: ${text.charAt(0).toLowerCase() + text.slice(1)}`;
@@ -1009,11 +1085,73 @@ function billSummary(scan) {
   return text;
 }
 
+const listNames = (items) => {
+  const names = items.slice(0, 3).map((i) => i.name.toLowerCase());
+  return names.length > 1 ? names.slice(0, -1).join(", ") + " and " + names.at(-1) : names[0];
+};
+
+// Fixes worked out from the bill's own numbers and published estimates, so savings are specific
+// and defensible. `covers` drops the model's version of the same tip.
+function ruleFixes(scan) {
+  const fixes = [];
+  const { value, unit } = normalizeUsage(scan);
+  const rate = value > 0 ? scan.total_cost_usd / value : 0; // this bill's average cost per unit
+  const monthly = toMonthly(value, scan.billing_days || 30);
+  const typical = TYPICAL[unit];
+
+  if (scan.document_type === "water_bill" && rate) {
+    const prev = scan.previous_usage_amount > 0 ? normalizeUsage({ ...scan, usage_amount: scan.previous_usage_amount }).value : 0;
+    if (prev && value > prev * 1.25) {
+      const extra = value - prev;
+      fixes.push({
+        title: "Check for a hidden leak",
+        detail: `You used ${fmt(extra)} more gallons than last bill. Put food coloring in the toilet tank; color in the bowl after 15 minutes means a leaky flapper (about $5 to replace).`,
+        resource: "water", est_annual_savings_usd: Math.round(extra * rate * 12), covers: /leak|toilet|flapper|drip/i,
+      });
+    }
+    if (monthly > typical * 1.1) {
+      fixes.push({
+        title: "Install WaterSense showerheads",
+        detail: "They use at least 20% less water. EPA estimates a typical family saves about 2,700 gallons a year.",
+        resource: "water", est_annual_savings_usd: Math.round(2700 * rate), covers: /shower|aerator|faucet/i,
+      });
+    }
+  }
+
+  if (scan.document_type === "electric_bill" && rate && monthly > typical * 1.1) {
+    const yearly = monthly * 12 * rate;
+    fixes.push({
+      title: "Set the thermostat back 7–10°F",
+      detail: "For 8 hours a day while you sleep or are out. DOE estimates up to 10% off heating and cooling, which is roughly 40% of a typical bill.",
+      resource: "energy", est_annual_savings_usd: Math.round(yearly * 0.4 * 0.1), covers: /thermostat|heating|cooling|hvac|temperature/i,
+    });
+    fixes.push({
+      title: "Switch your 5 most-used lights to LED",
+      detail: "ENERGY STAR estimates about $75 a year for replacing the five lights you use most.",
+      resource: "energy", est_annual_savings_usd: 75, covers: /led|bulb|light/i,
+    });
+  }
+
+  if (scan.document_type === "grocery_receipt") {
+    const soon = (scan.items || []).filter((i) => i.perishable && i.days_until_spoil <= 3);
+    if (soon.length) {
+      const atRisk = soon.reduce((sum, i) => sum + (i.price_usd || 0), 0);
+      fixes.push({
+        title: `Use the ${listNames(soon)} first`,
+        detail: `$${atRisk.toFixed(2)} of this shop spoils within 3 days. Plan it into your next two meals.`,
+        // If about a quarter of at-risk food is usually thrown out, every week of the year.
+        resource: "food", est_annual_savings_usd: Math.round(atRisk * 0.25 * 52), covers: /first|spoil|perishable|expire/i,
+      });
+    }
+  }
+  return fixes.map((f) => ({ ...f, from_numbers: true }));
+}
+
 // Smaller models sometimes fill fields that don't apply or mislabel fixes; correct them.
 function cleanScan(scan) {
   if (/^(unknown|n\/?a|none|not (shown|listed))$/i.test((scan.provider || "").trim())) scan.provider = "";
   const resource = RESOURCE_FOR[scan.document_type];
-  scan.fixes = (scan.fixes || []).slice(0, 4).map((f) => ({
+  scan.fixes = (scan.fixes || []).map((f) => ({
     ...f,
     resource: resource || f.resource,
     detail: (f.detail || "").replace(/\s+\d+\s*$/, ""), // stray trailing numbers from the model
@@ -1031,6 +1169,10 @@ function cleanScan(scan) {
   if (["electric_bill", "water_bill", "gas_bill"].includes(scan.document_type) && scan.usage_amount > 0) {
     scan.summary = billSummary(scan);
   }
+  // Fixes from the numbers come first; the model's ideas fill the rest unless they repeat one.
+  const rules = ruleFixes(scan);
+  const extra = scan.fixes.filter((f) => !rules.some((r) => r.covers.test(`${f.title} ${f.detail}`)));
+  scan.fixes = [...rules.map(({ covers, ...f }) => f), ...extra].slice(0, 4);
   return scan;
 }
 
@@ -1215,6 +1357,8 @@ const COLORS = { water: "#23668F", energy: "#E9A23B", food: "#2E8B57", homes: "#
 const LABELS = { water: "Water leak", energy: "Grid strain", food: "Food waste" };
 
 let map, layers = {}, mapReady = false;
+let shareCity = false; // opt-in: add this home's anonymous block totals to the map
+let mySpots = [];
 
 // Deterministic pseudo-random so the "homes" layer looks the same every demo.
 function rng(seed) { return () => ((seed = (seed * 16807) % 2147483647) / 2147483647); }
@@ -1246,13 +1390,7 @@ function initMap() {
   L.marker(HOME, {
     icon: L.divIcon({ className: "", html: '<div style="background:#12302A;color:#F5F2EA;padding:6px 10px;border-radius:999px;font:700 13px DM Sans;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.25);display:inline-block">🏠 Your home</div>', iconSize: [120, 32], iconAnchor: [60, 16] }),
   }).addTo(map);
-
-  $("#projects").replaceChildren(...[...HOTSPOTS].sort((a, b) => b.score - a.score).map((h) =>
-    el("button", { class: "project", onclick: () => { map.flyTo(h.at, 15, { duration: 1.2 }); setTimeout(() => h.marker.openPopup(), 1250); } },
-      el("div", { class: "tag " + h.type }, `${LABELS[h.type]} · ${h.name}`),
-      el("h4", {}, h.project),
-      el("p", {}, h.savings))
-  ));
+  layers.mine = L.layerGroup().addTo(map);
 
   $$("#layers [data-layer]").forEach((chip) => chip.addEventListener("click", () => {
     const layer = layers[chip.dataset.layer];
@@ -1262,7 +1400,95 @@ function initMap() {
   }));
   $("#replayZoom").addEventListener("click", zoomOut);
   mapReady = true;
+  syncMyBlock();
 }
+
+function renderProjects() {
+  const project = (h, mine) =>
+    el("button", { class: "project", onclick: () => { map.flyTo(h.at, 15, { duration: 1.2 }); setTimeout(() => h.marker.openPopup(), 1250); } },
+      mine ? el("div", { class: "mine-tag" }, "NEW · from your home") : null,
+      el("div", { class: "tag " + h.type }, `${LABELS[h.type]} · ${h.name}`),
+      el("h4", {}, h.project),
+      el("p", {}, h.savings));
+  $("#projects").replaceChildren(
+    ...mySpots.map((h) => project(h, true)),
+    ...[...HOTSPOTS].sort((a, b) => b.score - a.score).map((h) => project(h, false)));
+}
+
+// Turns this home's scans into the anonymous signals a block would report.
+function myBlockSignals() {
+  const spots = [];
+  const series = (unit) => scanHistory.filter((h) => h.unit === unit).sort((a, b) => a.date - b.date);
+  // Compare the current water bill with the previous one in History, or with the "last bill" figure printed on it.
+  const water = series("gal");
+  const last = household.water ? { monthly: household.water.monthly } : water.at(-1);
+  const historyPrev = water.length >= 2 && water.at(-1).monthly === last?.monthly ? water.at(-2) : null;
+  const prev = historyPrev || (household.water?.prevMonthly ? { monthly: household.water.prevMonthly } : null);
+  if (last && prev) {
+    const jump = Math.round((last.monthly / prev.monthly - 1) * 100);
+    if (jump >= 25) {
+      spots.push({
+        type: "water", at: [HOME[0] + 0.0028, HOME[1] + 0.0032], name: "Your block · The Fan",
+        signal: `Water up ${jump}% in one month at a home on this block, with no change in habits`,
+        project: "Free leak check for this block’s homes and service line",
+        savings: `≈ ${fmt((last.monthly - prev.monthly) * 12)} gallons/yr if it’s a leak`,
+      });
+    }
+  }
+  if (household.energy && household.energy.monthly > TYPICAL.kWh * 1.15) {
+    const over = Math.round((household.energy.monthly / TYPICAL.kWh - 1) * 100);
+    spots.push({
+      type: "energy", at: [HOME[0] - 0.0026, HOME[1] + 0.0036], name: "Your block · The Fan",
+      signal: `Electricity ${over}% above a typical home, much of it during the 5–8 pm peak`,
+      project: "Enroll this block in Grid Sync to shift evening load",
+      savings: `≈ ${fmt((household.energy.monthly - TYPICAL.kWh) * 12)} kWh/yr above typical`,
+    });
+  }
+  const soon = household.pantry.filter((p) => p.perishable && p.daysLeft <= 3);
+  if (soon.length >= 3) {
+    spots.push({
+      type: "food", at: [HOME[0] + 0.0004, HOME[1] - 0.0045], name: "Your block · The Fan",
+      signal: `${soon.length} items from the latest shop spoil within 3 days`,
+      project: "Add this block to The Fan food-share fridge route",
+      savings: "Keeps edible food out of the landfill",
+    });
+  }
+  return spots;
+}
+
+// Draws (or clears) this home's contribution on the city map.
+function syncMyBlock() {
+  $("#shareToggle").checked = shareCity;
+  mySpots = shareCity ? myBlockSignals() : [];
+  if (mapReady) {
+    layers.mine.clearLayers();
+    for (const h of mySpots) {
+      const popup = el("div", {},
+        el("div", { class: "mine-tag" }, "From your home · anonymous"),
+        el("div", { class: "tag " + h.type }, LABELS[h.type]),
+        el("h4", {}, h.name),
+        el("div", {}, el("b", {}, "Signal: "), h.signal),
+        el("div", { style: "margin-top:6px" }, el("b", {}, "Recommended: "), h.project),
+        el("div", { style: "margin-top:6px;color:#1E5A38;font-weight:700" }, h.savings));
+      h.marker = L.marker(h.at, {
+        icon: L.divIcon({ className: "", html: `<div class="pulse" style="--c:${COLORS[h.type]}"></div>`, iconSize: [24, 24], iconAnchor: [12, 12] }),
+      }).bindPopup(popup).addTo(layers.mine);
+    }
+    renderProjects();
+  }
+  $("#shareInfo").replaceChildren(...(!shareCity ? [] : mySpots.length
+    ? [el("b", {}, `✓ Your home is 1 of 421 Wattson homes on this map.`), el("br"),
+       `Your block now reports ${mySpots.length} signal${mySpots.length === 1 ? "" : "s"}: ${mySpots.map((s) => LABELS[s.type].toLowerCase()).join(", ")}. Look for the pulsing dots near your home.`]
+    : ["✓ Sharing is on. Scan bills (or load the demo history) and your block’s signals will appear here."]));
+}
+
+$("#shareToggle").addEventListener("change", (e) => {
+  shareCity = e.target.checked;
+  saveState();
+  syncMyBlock();
+  if (mapReady && shareCity && mySpots.length) map.flyTo(HOME, 15, { duration: 1.4 });
+  toast(shareCity ? "Sharing anonymous block totals" : "Stopped sharing. Your data stays on this device.");
+});
 
 function zoomOut() {
   map.setView(HOME, 17, { animate: false });
@@ -1275,6 +1501,7 @@ function enterCity() {
     return;
   }
   if (!mapReady) initMap();
+  else syncMyBlock(); // pick up scans made since the map was last opened
   // The map was sized while hidden; recompute before animating.
   setTimeout(() => { map.invalidateSize(); zoomOut(); }, 60);
 }
@@ -1310,6 +1537,50 @@ function renderImpact() {
   $("#eqFood").textContent = `≈ ${money(800 * 2.3 * 0.25)} per household`;
 }
 $("#pct").addEventListener("input", renderImpact);
+
+/* ---------------- Your home (ZIP and household size) ---------------- */
+function renderProfile() {
+  const people = profile.people ? `${profile.people} ${profile.people === 1 ? "person" : "people"}` : "";
+  const area = isRichmond() ? "Richmond area" : profile.zip ? `ZIP ${profile.zip}` : "";
+  $("#homeChip").textContent = area || people
+    ? `🏠 ${[area, people].filter(Boolean).join(" · ")} · Edit`
+    : "🏠 Set your home for local comparisons";
+}
+
+function homeNote() {
+  const zip = $("#homeZip").value.trim();
+  $("#homeNote").textContent = !zip ? ""
+    : !/^\d{5}$/.test(zip) ? "Enter a 5-digit ZIP code."
+    : /^232\d\d$/.test(zip) ? "✓ Richmond area: water is also compared with Richmond’s typical customer (City DPU)."
+    : "Local averages for this area aren’t built in yet, so Wattson uses U.S. averages sized to your household.";
+}
+
+$("#homeChip").addEventListener("click", () => {
+  $("#homeZip").value = profile.zip;
+  $("#homePeople").value = profile.people || "";
+  homeNote();
+  $("#homeDialog").showModal();
+});
+$("#homeZip").addEventListener("input", homeNote);
+$("#homeCancel").addEventListener("click", () => $("#homeDialog").close());
+$("#homeSave").addEventListener("click", () => {
+  const zip = $("#homeZip").value.trim();
+  const people = Math.round(Number($("#homePeople").value));
+  if (zip && !/^\d{5}$/.test(zip)) { homeNote(); return; }
+  profile = { zip, people: people >= 1 && people <= 12 ? people : 0 };
+  rescore();
+  if (lastScan?.scan && RESOURCE_FOR[lastScan.scan.document_type] !== "food" && lastScan.scan.usage_amount > 0) {
+    lastScan.scan.summary = billSummary(lastScan.scan);
+    showScanResult(lastScan.scan, lastScan.source);
+  }
+  renderHousehold();
+  renderHistory();
+  renderProfile();
+  saveState();
+  if (mapReady) syncMyBlock();
+  $("#homeDialog").close();
+  toast("✓ Comparisons updated for your home");
+});
 
 /* ---------------- History ---------------- */
 let scanHistory = []; // newest bill first
@@ -1391,10 +1662,11 @@ function renderHistory() {
         h.thumb ? el("img", { class: "hist-thumb", src: h.thumb, alt: "" }) : el("div", { class: "hist-thumb" }, info.icon),
         el("div", { class: "hist-main" },
           el("b", {}, info.label),
-          el("span", { class: "muted small" }, [date, h.scan.provider, h.source === "sample" ? "sample" : "scanned"].filter(Boolean).join(" · "))),
+          el("span", { class: "muted small" }, [date, h.scan.provider, h.source === "demo" ? "demo" : "scanned"].filter(Boolean).join(" · "))),
         el("div", { class: "hist-num" }, el("b", {}, key), el("span", { class: "muted small" }, money(h.scan.total_cost_usd)))),
       el("div", { class: "hist-body" },
-        h.scan.summary ? el("p", {}, h.scan.summary) : null,
+        // Bill summaries are rebuilt so they follow the current home profile.
+        (h.unit ? billSummary(h.scan) : h.scan.summary) ? el("p", {}, h.unit ? billSummary(h.scan) : h.scan.summary) : null,
         (h.scan.fixes || []).length ? el("ul", {}, h.scan.fixes.map((f) => el("li", {}, `${f.title} (+${money(f.est_annual_savings_usd)}/yr)`))) : null,
         el("button", { class: "btn btn-ghost", style: "padding:6px 12px;font-size:13px", onclick: () => deleteHistory(h.id) }, "Delete")));
   }) : [el("div", { class: "empty" }, "No scans yet. Scan a bill on My Home, or load the demo history.")]));
@@ -1453,18 +1725,18 @@ function loadDemoHistory() {
   for (const [billing_period, billing_days, kwh] of electric) {
     const scan = { document_type: "electric_bill", provider: "Sample Electric Co.", billing_period, usage_amount: kwh, usage_unit: "kWh", billing_days, total_cost_usd: Math.round(kwh * 14.2) / 100, previous_usage_amount: prev, items: [], fixes: [], recipe_idea: "" };
     scan.summary = billSummary(scan);
-    addToHistory(scan, "sample");
+    addToHistory(scan, "demo");
     prev = kwh;
   }
   prev = 0;
   for (const [billing_period, billing_days, ccf] of water) {
     const scan = { document_type: "water_bill", provider: "Sample City Utilities", billing_period, usage_amount: ccf, usage_unit: "CCF", billing_days, total_cost_usd: Math.round(ccf * 990) / 100, previous_usage_amount: prev, items: [], fixes: [], recipe_idea: "" };
     scan.summary = billSummary(scan);
-    addToHistory(scan, "sample");
+    addToHistory(scan, "demo");
     prev = ccf;
   }
-  addToHistory(SAMPLES.electric, "sample");
-  addToHistory(SAMPLES.water, "sample");
+  addToHistory(sampleScan("electric"), "demo");
+  addToHistory(sampleScan("water"), "demo");
   toast("Loaded 5 months of sample bills");
 }
 $("#demoHistory").addEventListener("click", loadDemoHistory);
@@ -1495,6 +1767,21 @@ function appState() {
     grid_sync: { appliance: selected.name, best_start_time: hourLabel(start), shifted_today_kWh: shiftedKwh },
     history_trends: historyTrends(),
     past_scans: scanHistory.length,
+    home: {
+      zip: profile.zip || "not set",
+      area: isRichmond() ? "Richmond, Virginia" : profile.zip ? "outside Wattson's built-in local data" : "not set",
+      people: profile.people || "not set (comparisons assume 2.5, the U.S. average)",
+    },
+    comparisons_used: {
+      water: `${typicalHome("gal")}: ${fmt(TYPICAL.gal)} gallons a month (EPA: 82 gallons per person per day)`,
+      electricity: `a typical U.S. home: ${fmt(TYPICAL.kWh)} kWh a month (EIA 2024)`,
+      ...(isRichmond() && { richmond_water: `Richmond's typical water customer: ${fmt(RICHMOND_TYPICAL_GAL)} gallons a month (City of Richmond DPU rate notice: 6 CCF)` }),
+      ...(household.water && isRichmond() && (() => {
+        const pct = Math.round((household.water.monthly / RICHMOND_TYPICAL_GAL - 1) * 100);
+        return { you_vs_richmond_water: `You use ${fmt(household.water.monthly)} gallons a month, which is ${Math.abs(pct)}% ${pct >= 0 ? "more" : "less"} than Richmond's typical customer (${fmt(RICHMOND_TYPICAL_GAL)} gallons a month).` };
+      })()),
+    },
+    sharing_with_city_map: shareCity ? `on: block signals ${mySpots.map((s) => s.signal).join("; ") || "none yet"}` : "off",
   };
 }
 
@@ -1551,6 +1838,8 @@ $("#chatForm").addEventListener("submit", (e) => { e.preventDefault(); const q =
 
 $("#resetBtn").addEventListener("click", startOver);
 restoreState();
+renderProfile();
+syncMyBlock();
 
 // Load the local model into memory up front so the first answer during the demo is quick.
 checkOllama().then((ready) => {
